@@ -1,112 +1,162 @@
-const express = require('express');
-const db = require('../db');
-const { verifierToken } = require('../auth');
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import { appelApi } from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
-const router = express.Router();
-router.use(verifierToken);
+const PRIX_REPARATION_FIXE = 750;
 
-const TAUX_HORAIRE = 100; // $ par heure
+export default function ModaleIntervention({ type, surFermer, surCree }) {
+  const { employe } = useAuth();
+  const [description, setDescription] = useState('');
+  const [plaque, setPlaque] = useState('');
+  const [marqueVehicule, setMarqueVehicule] = useState('');
+  const [nomClient, setNomClient] = useState('');
+  const [prix, setPrix] = useState('');
+  const [notes, setNotes] = useState('');
+  const [erreur, setErreur] = useState('');
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
-function debutSemaineISO() {
-  const d = new Date();
-  d.setDate(d.getDate() - d.getDay() + 1); // Lundi
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  const estCustom = type === 'custom';
+
+  async function gererSoumission(e) {
+    e.preventDefault();
+    setErreur('');
+
+    if (!plaque || !marqueVehicule || !nomClient) {
+      setErreur('Merci de remplir tous les champs obligatoires');
+      return;
+    }
+    if (estCustom && !prix) {
+      setErreur('Merci de renseigner le prix du custom');
+      return;
+    }
+
+    setEnvoiEnCours(true);
+    try {
+      await appelApi('/interventions', {
+        method: 'POST',
+        body: JSON.stringify({
+          type,
+          nom_prestation: estCustom ? (description || 'Custom') : 'Réparation',
+          plaque,
+          marque_vehicule: marqueVehicule,
+          nom_client: nomClient,
+          employe_id: employe.id,
+          prix: estCustom ? Number(prix) : PRIX_REPARATION_FIXE,
+          notes,
+        }),
+      });
+      surCree();
+    } catch (e) {
+      setErreur(e.message);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  }
+
+  const titre = estCustom ? 'Nouveau Custom' : 'Nouvelle Réparation';
+  const couleur = estCustom ? 'bg-accent-amber' : 'bg-accent-blue';
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+      <div className="bg-bg-panel rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-white">{titre}</h2>
+          <button onClick={surFermer} className="text-gray-400 hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={gererSoumission} className="flex flex-col gap-4">
+          {!estCustom && (
+            <div className="bg-bg-card rounded-lg px-4 py-3 text-sm text-gray-300">
+              Prix fixe appliqué automatiquement :{' '}
+              <span className="text-white font-semibold">{PRIX_REPARATION_FIXE} $</span>
+            </div>
+          )}
+
+          {estCustom && (
+            <Champ label="Description du custom (optionnel)">
+              <input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+                placeholder="Ex: Peinture + jantes"
+              />
+            </Champ>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <Champ label="Plaque *">
+              <input
+                value={plaque}
+                onChange={(e) => setPlaque(e.target.value.toUpperCase())}
+                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+                placeholder="AB-123-CD"
+              />
+            </Champ>
+            <Champ label="Marque du véhicule *">
+              <input
+                value={marqueVehicule}
+                onChange={(e) => setMarqueVehicule(e.target.value)}
+                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+                placeholder="Ex: Karin Sultan"
+              />
+            </Champ>
+          </div>
+
+          <Champ label="Nom du client *">
+            <input
+              value={nomClient}
+              onChange={(e) => setNomClient(e.target.value)}
+              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+              placeholder="Ex: John Doe"
+            />
+          </Champ>
+
+          {estCustom && (
+            <Champ label="Prix ($) *">
+              <input
+                type="number"
+                min="0"
+                value={prix}
+                onChange={(e) => setPrix(e.target.value)}
+                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+                placeholder="Ex: 300"
+                autoFocus
+              />
+            </Champ>
+          )}
+
+          <Champ label="Notes (optionnel)">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10 resize-none"
+            />
+          </Champ>
+
+          {erreur && <p className="text-red-400 text-sm">{erreur}</p>}
+
+          <button
+            type="submit"
+            disabled={envoiEnCours}
+            className={`${couleur} text-white font-semibold py-2.5 rounded-lg text-sm mt-1 disabled:opacity-60`}
+          >
+            {envoiEnCours ? 'Enregistrement...' : 'Enregistrer'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
-function calculerHeures(sessions) {
-  let totalMs = 0;
-  const maintenant = Date.now();
-  for (const s of sessions) {
-    const debut = new Date(s.debut).getTime();
-    const fin = s.fin ? new Date(s.fin).getTime() : maintenant;
-    totalMs += Math.max(0, fin - debut);
-  }
-  return totalMs / (1000 * 60 * 60);
+function Champ({ label, children }) {
+  return (
+    <div>
+      <label className="text-sm text-gray-400 block mb-1.5">{label}</label>
+      {children}
+    </div>
+  );
 }
-
-router.post('/debut', (req, res) => {
-  const employeId = req.utilisateur.id;
-
-  const enCours = db
-    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
-    .get(employeId);
-  if (enCours) {
-    return res.status(409).json({ erreur: 'Une session est déjà en cours' });
-  }
-
-  db.prepare('INSERT INTO sessions_service (employe_id) VALUES (?)').run(employeId);
-  db.prepare('UPDATE employes SET en_service = 1 WHERE id = ?').run(employeId);
-  res.status(201).json({ ok: true });
-});
-
-router.post('/fin', (req, res) => {
-  const employeId = req.utilisateur.id;
-
-  const enCours = db
-    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
-    .get(employeId);
-  if (!enCours) {
-    db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
-    return res.json({ ok: true });
-  }
-
-  db.prepare("UPDATE sessions_service SET fin = datetime('now') WHERE id = ?").run(enCours.id);
-  db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
-  res.json({ ok: true });
-});
-
-router.get('/moi', (req, res) => {
-  const employeId = req.utilisateur.id;
-
-  const toutes = db
-    .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
-    .all(employeId);
-
-  const semaine = toutes.filter((s) => s.debut >= debutSemaineISO());
-
-  const heuresSemaine = calculerHeures(semaine);
-  const heuresTotal = calculerHeures(toutes);
-
-  res.json({
-    sessions: toutes.slice(0, 30),
-    en_service: toutes.some((s) => !s.fin),
-    heures_semaine: heuresSemaine,
-    montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
-    heures_total: heuresTotal,
-    montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
-    taux_horaire: TAUX_HORAIRE,
-  });
-});
-
-router.get('/equipe', (req, res) => {
-  if (!req.utilisateur.est_admin) {
-    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
-  }
-
-  const employes = db.prepare('SELECT id, nom_affiche FROM employes ORDER BY nom_affiche').all();
-  const debutSemaine = debutSemaineISO();
-
-  const resultat = employes.map((emp) => {
-    const toutes = db
-      .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
-      .all(emp.id);
-    const semaine = toutes.filter((s) => s.debut >= debutSemaine);
-    const heuresSemaine = calculerHeures(semaine);
-    const heuresTotal = calculerHeures(toutes);
-
-    return {
-      employe_id: emp.id,
-      nom_affiche: emp.nom_affiche,
-      en_service: toutes.some((s) => !s.fin),
-      heures_semaine: heuresSemaine,
-      montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
-      heures_total: heuresTotal,
-      montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
-    };
-  });
-
-  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE });
-});
-
-module.exports = router;
