@@ -8,7 +8,7 @@ const liens = [
   { to: '/profil', label: 'Mon profil', icon: UserCircle },
   { to: '/repas-custom', label: 'Répas/Custom', icon: Wrench },
   { to: '/catalogue', label: 'Catalogue', icon: ShoppingBag },
-  { to: '/clients', label: 'Fiches Clients', icon: IdCard },
+  { to: '/clients', label: 'Fiches Clients', icon: Contact },
   { to: '/employes', label: 'Équipe', icon: Car },
   { to: '/contrats', label: 'Contrats', icon: FileText },
   { to: '/badgeuse', label: 'Badgeuse', icon: Clock },
