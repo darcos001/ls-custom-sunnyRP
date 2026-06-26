@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { appelApi } from '../api.js';
 
 const AuthContext = createContext(null);
 
@@ -26,9 +27,8 @@ export function AuthProvider({ children }) {
 
   async function deconnecter() {
     try {
-      await fetch('/api/auth/logout', {
+      await appelApi('/auth/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employe_id: employe?.id }),
       });
     } catch (e) {
