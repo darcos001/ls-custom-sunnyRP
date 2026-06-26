@@ -15,6 +15,22 @@ export default function Header() {
     return () => clearInterval(intervalle);
   }, []);
 
+  useEffect(() => {
+    function gererFermeture() {
+      if (!enService) return;
+      const token = localStorage.getItem('ls_token');
+      navigator.sendBeacon(
+        `https://ls-custom-sunnyrp-production.up.railway.app/api/badgeuse/fin-beacon?token=${encodeURIComponent(token || '')}`
+      );
+    }
+    window.addEventListener('beforeunload', gererFermeture);
+    window.addEventListener('pagehide', gererFermeture);
+    return () => {
+      window.removeEventListener('beforeunload', gererFermeture);
+      window.removeEventListener('pagehide', gererFermeture);
+    };
+  }, [enService]);
+
   async function chargerCompteService() {
     try {
       const r = await appelApi('/employes/en-service/compte');
