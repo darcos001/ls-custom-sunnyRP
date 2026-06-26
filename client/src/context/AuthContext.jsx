@@ -12,8 +12,14 @@ export function AuthProvider({ children }) {
     const tokenSauve = localStorage.getItem('ls_token');
     const employeSauve = localStorage.getItem('ls_employe');
     if (tokenSauve && employeSauve) {
-      setToken(tokenSauve);
-      setEmploye(JSON.parse(employeSauve));
+      try {
+        setToken(tokenSauve);
+        setEmploye(JSON.parse(employeSauve));
+      } catch (e) {
+        // Données corrompues : on nettoie et on repart sur un état propre
+        localStorage.removeItem('ls_token');
+        localStorage.removeItem('ls_employe');
+      }
     }
     setChargement(false);
   }, []);
