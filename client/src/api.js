@@ -1,3 +1,6 @@
+// Adresse du serveur backend (à adapter si tu changes d'hébergeur ou de domaine)
+const API_BASE = 'https://ls-custom-sunnyrp-production.up.railway.app/api';
+
 export async function appelApi(chemin, options = {}) {
   const token = localStorage.getItem('ls_token');
   const headers = {
@@ -6,7 +9,7 @@ export async function appelApi(chemin, options = {}) {
     ...(options.headers || {}),
   };
 
-  const reponse = await fetch(`/api${chemin}`, { ...options, headers });
+  const reponse = await fetch(`${API_BASE}${chemin}`, { ...options, headers });
   const donnees = await reponse.json().catch(() => ({}));
 
   if (!reponse.ok) {
