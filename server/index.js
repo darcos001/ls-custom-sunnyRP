@@ -16,6 +16,7 @@ app.use('/api/employes', require('./routes/employes'));
 app.use('/api/grades', require('./routes/grades'));
 app.use('/api/catalogue', require('./routes/catalogue'));
 app.use('/api/interventions', require('./routes/interventions'));
+app.use('/api/badgeuse', require('./routes/badgeuse'));
 
 // En production : sert aussi le frontend déjà construit (dossier client/dist)
 const distPath = path.join(__dirname, '..', 'client', 'dist');
