@@ -5,108 +5,171 @@ const { verifierToken } = require('../auth');
 const router = express.Router();
 router.use(verifierToken);
 
-const TAUX_HORAIRE = 100; // $ par heure
-
-function debutSemaineISO() {
-  const d = new Date();
-  d.setDate(d.getDate() - d.getDay() + 1); // Lundi
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
-function calculerHeures(sessions) {
-  let totalMs = 0;
-  const maintenant = Date.now();
-  for (const s of sessions) {
-    const debut = new Date(s.debut).getTime();
-    const fin = s.fin ? new Date(s.fin).getTime() : maintenant;
-    totalMs += Math.max(0, fin - debut);
-  }
-  return totalMs / (1000 * 60 * 60);
-}
-
-router.post('/debut', (req, res) => {
-  const employeId = req.utilisateur.id;
-
-  const enCours = db
-    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
+// Calcule la commission et le bénéfice pour un employé donné et un prix donné
+function calculerMontants(employeId, prix, coutMateriel) {
+  const employe = db
+    .prepare(
+      `SELECT e.id, g.commission_pourcentage
+       FROM employes e JOIN grades g ON g.id = e.grade_id
+       WHERE e.id = ?`
+    )
     .get(employeId);
-  if (enCours) {
-    return res.status(409).json({ erreur: 'Une session est déjà en cours' });
+
+  if (!employe) throw new Error('Employé introuvable');
+
+  const margeBrute = prix - coutMateriel;
+  const commissionMontant = Math.round(margeBrute * (employe.commission_pourcentage / 100) * 100) / 100;
+  const benefice = Math.round((margeBrute - commissionMontant) * 100) / 100;
+
+  return { commissionMontant, benefice };
+}
+
+// Prix fixe pour toutes les réparations
+const PRIX_REPARATION_FIXE = 750;
+
+// Créer une intervention (réparation ou custom)
+router.post('/', (req, res) => {
+  const {
+    type, // 'reparation' | 'custom'
+    nom_prestation,
+    plaque,
+    marque_vehicule,
+    nom_client,
+    employe_id,
+    notes,
+  } = req.body;
+
+  let { prix } = req.body;
+
+  if (!type || !plaque || !marque_vehicule || !nom_client || !employe_id) {
+    return res.status(400).json({ erreur: 'Tous les champs obligatoires doivent être remplis' });
+  }
+  if (type === 'reparation') {
+    prix = PRIX_REPARATION_FIXE;
+  } else if (prix === undefined || prix === null || prix === '') {
+    return res.status(400).json({ erreur: 'Le prix est obligatoire pour un custom' });
   }
 
-  db.prepare('INSERT INTO sessions_service (employe_id) VALUES (?)').run(employeId);
-  db.prepare('UPDATE employes SET en_service = 1 WHERE id = ?').run(employeId);
-  res.status(201).json({ ok: true });
+  const nomFinal = type === 'reparation' ? (nom_prestation || 'Réparation') : (nom_prestation || 'Custom');
+
+  try {
+    const { commissionMontant, benefice } = calculerMontants(employe_id, Number(prix), 0);
+
+    const resultat = db
+      .prepare(
+        `INSERT INTO interventions
+          (type, catalogue_id, nom_prestation, plaque, marque_vehicule, nom_client,
+           employe_id, prix, cout_materiel, commission_montant, benefice, notes)
+         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+      )
+      .run(
+        type,
+        nomFinal,
+        plaque.toUpperCase(),
+        marque_vehicule,
+        nom_client,
+        employe_id,
+        Number(prix),
+        commissionMontant,
+        benefice,
+        notes || null
+      );
+
+    res.status(201).json({ id: resultat.lastInsertRowid, commission: commissionMontant, benefice });
+  } catch (e) {
+    res.status(400).json({ erreur: e.message });
+  }
 });
 
-router.post('/fin', (req, res) => {
-  const employeId = req.utilisateur.id;
+// Liste avec filtres (recherche, mécanicien, semaine, tri)
+router.get('/', (req, res) => {
+  const { recherche, employe_id, type, depuis, jusqu_a, tri } = req.query;
 
-  const enCours = db
-    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
-    .get(employeId);
-  if (!enCours) {
-    db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
-    return res.json({ ok: true });
+  let sql = `
+    SELECT i.*, e.nom_affiche AS mecano_nom
+    FROM interventions i
+    JOIN employes e ON e.id = i.employe_id
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (recherche) {
+    sql += ` AND (i.nom_client LIKE ? OR i.plaque LIKE ? OR i.marque_vehicule LIKE ? OR i.nom_prestation LIKE ?)`;
+    const r = `%${recherche}%`;
+    params.push(r, r, r, r);
+  }
+  if (employe_id) {
+    sql += ` AND i.employe_id = ?`;
+    params.push(employe_id);
+  }
+  if (type) {
+    sql += ` AND i.type = ?`;
+    params.push(type);
+  }
+  if (depuis) {
+    sql += ` AND i.date_creation >= ?`;
+    params.push(depuis);
+  }
+  if (jusqu_a) {
+    sql += ` AND i.date_creation <= ?`;
+    params.push(jusqu_a);
   }
 
-  db.prepare("UPDATE sessions_service SET fin = datetime('now') WHERE id = ?").run(enCours.id);
-  db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
+  sql += tri === 'anciens' ? ' ORDER BY i.date_creation ASC' : ' ORDER BY i.date_creation DESC';
+
+  const lignes = db.prepare(sql).all(...params);
+  res.json(lignes);
+});
+
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  const ligne = db.prepare('SELECT employe_id FROM interventions WHERE id = ?').get(id);
+  if (!ligne) return res.status(404).json({ erreur: 'Introuvable' });
+  if (ligne.employe_id !== req.utilisateur.id && !req.utilisateur.est_admin) {
+    return res.status(403).json({ erreur: 'Non autorisé' });
+  }
+  db.prepare('DELETE FROM interventions WHERE id = ?').run(id);
   res.json({ ok: true });
 });
 
-router.get('/moi', (req, res) => {
-  const employeId = req.utilisateur.id;
+// --- Statistiques pour le tableau de bord ---
+router.get('/stats/semaine', (req, res) => {
+  const debutSemaine = new Date();
+  debutSemaine.setDate(debutSemaine.getDate() - debutSemaine.getDay() + 1); // Lundi
+  debutSemaine.setHours(0, 0, 0, 0);
+  const debutISO = debutSemaine.toISOString();
 
-  const toutes = db
-    .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
-    .all(employeId);
-
-  const semaine = toutes.filter((s) => s.debut >= debutSemaineISO());
-
-  const heuresSemaine = calculerHeures(semaine);
-  const heuresTotal = calculerHeures(toutes);
+  const reparations = db
+    .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total FROM interventions WHERE type='reparation' AND date_creation >= ?`)
+    .get(debutISO);
+  const customs = db
+    .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total, COALESCE(SUM(benefice),0) AS benef FROM interventions WHERE type='custom' AND date_creation >= ?`)
+    .get(debutISO);
+  const total = db
+    .prepare(`SELECT COALESCE(SUM(prix),0) AS total FROM interventions WHERE date_creation >= ?`)
+    .get(debutISO);
 
   res.json({
-    sessions: toutes.slice(0, 30),
-    en_service: toutes.some((s) => !s.fin),
-    heures_semaine: heuresSemaine,
-    montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
-    heures_total: heuresTotal,
-    montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
-    taux_horaire: TAUX_HORAIRE,
+    reparations_count: reparations.c,
+    reparations_total: reparations.total,
+    customs_count: customs.c,
+    customs_total: customs.total,
+    customs_benefice: customs.benef,
+    ca_total: total.total,
   });
 });
 
-router.get('/equipe', (req, res) => {
-  if (!req.utilisateur.est_admin) {
-    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
-  }
-
-  const employes = db.prepare('SELECT id, nom_affiche FROM employes ORDER BY nom_affiche').all();
-  const debutSemaine = debutSemaineISO();
-
-  const resultat = employes.map((emp) => {
-    const toutes = db
-      .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
-      .all(emp.id);
-    const semaine = toutes.filter((s) => s.debut >= debutSemaine);
-    const heuresSemaine = calculerHeures(semaine);
-    const heuresTotal = calculerHeures(toutes);
-
-    return {
-      employe_id: emp.id,
-      nom_affiche: emp.nom_affiche,
-      en_service: toutes.some((s) => !s.fin),
-      heures_semaine: heuresSemaine,
-      montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
-      heures_total: heuresTotal,
-      montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
-    };
-  });
-
-  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE });
+router.get('/stats/employe/:id', (req, res) => {
+  const { id } = req.params;
+  const stats = db
+    .prepare(
+      `SELECT COUNT(*) AS interventions_count,
+              COALESCE(SUM(prix),0) AS total_genere,
+              COALESCE(SUM(commission_montant),0) AS total_commission
+       FROM interventions WHERE employe_id = ?`
+    )
+    .get(id);
+  res.json(stats);
 });
 
 module.exports = router;
