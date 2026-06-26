@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS interventions (
   FOREIGN KEY (employe_id) REFERENCES employes(id),
   FOREIGN KEY (catalogue_id) REFERENCES catalogue(id)
 );
+
+CREATE TABLE IF NOT EXISTS sessions_service (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  employe_id INTEGER NOT NULL,
+  debut TEXT NOT NULL DEFAULT (datetime('now')),
+  fin TEXT,
+  FOREIGN KEY (employe_id) REFERENCES employes(id)
+);
 `);
 
 // --- Données de départ (uniquement si la base est vide) ---
@@ -83,12 +91,10 @@ if (nbCatalogue === 0) {
   const insertItem = db.prepare(
     'INSERT INTO catalogue (nom, type, prix, cout_materiel) VALUES (?, ?, ?, ?)'
   );
-  // Réparations
   insertItem.run('Moteur', 'reparation', 150, 50);
   insertItem.run('Châssis', 'reparation', 200, 70);
   insertItem.run('Freins', 'reparation', 100, 30);
   insertItem.run('Pneus', 'reparation', 80, 25);
-  // Customs
   insertItem.run('Peinture', 'custom', 300, 120);
   insertItem.run('Jantes', 'custom', 250, 100);
   insertItem.run('Néons', 'custom', 180, 60);
