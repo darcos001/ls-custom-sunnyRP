@@ -1,186 +1,112 @@
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { appelApi } from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+const express = require('express');
+const db = require('../db');
+const { verifierToken } = require('../auth');
 
-export default function ModaleIntervention({ type, surFermer, surCree }) {
-  const { employe } = useAuth();
-  const [catalogue, setCatalogue] = useState([]);
-  const [catalogueId, setCatalogueId] = useState('');
-  const [nomPrestation, setNomPrestation] = useState('');
-  const [plaque, setPlaque] = useState('');
-  const [marqueVehicule, setMarqueVehicule] = useState('');
-  const [nomClient, setNomClient] = useState('');
-  const [prix, setPrix] = useState('');
-  const [coutMateriel, setCoutMateriel] = useState('');
-  const [notes, setNotes] = useState('');
-  const [erreur, setErreur] = useState('');
-  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+const router = express.Router();
+router.use(verifierToken);
 
-  useEffect(() => {
-    appelApi(`/catalogue?type=${type}`).then(setCatalogue).catch(() => {});
-  }, [type]);
+const TAUX_HORAIRE = 100; // $ par heure
 
-  function choisirItemCatalogue(id) {
-    setCatalogueId(id);
-    const item = catalogue.find((c) => String(c.id) === String(id));
-    if (item) {
-      setNomPrestation(item.nom);
-      setPrix(item.prix);
-      setCoutMateriel(item.cout_materiel);
-    }
-  }
-
-  async function gererSoumission(e) {
-    e.preventDefault();
-    setErreur('');
-    if (!nomPrestation || !plaque || !marqueVehicule || !nomClient || !prix) {
-      setErreur('Merci de remplir tous les champs obligatoires');
-      return;
-    }
-    setEnvoiEnCours(true);
-    try {
-      await appelApi('/interventions', {
-        method: 'POST',
-        body: JSON.stringify({
-          type,
-          catalogue_id: catalogueId || null,
-          nom_prestation: nomPrestation,
-          plaque,
-          marque_vehicule: marqueVehicule,
-          nom_client: nomClient,
-          employe_id: employe.id,
-          prix: Number(prix),
-          cout_materiel: Number(coutMateriel) || 0,
-          notes,
-        }),
-      });
-      surCree();
-    } catch (e) {
-      setErreur(e.message);
-    } finally {
-      setEnvoiEnCours(false);
-    }
-  }
-
-  const titre = type === 'custom' ? 'Nouveau Custom' : 'Nouvelle Réparation';
-  const couleur = type === 'custom' ? 'bg-accent-amber' : 'bg-accent-blue';
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-      <div className="bg-bg-panel rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">{titre}</h2>
-          <button onClick={surFermer} className="text-gray-400 hover:text-white">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={gererSoumission} className="flex flex-col gap-4">
-          {catalogue.length > 0 && (
-            <Champ label="Prestation (catalogue)">
-              <select
-                value={catalogueId}
-                onChange={(e) => choisirItemCatalogue(e.target.value)}
-                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              >
-                <option value="">— Choisir dans le catalogue (ou saisie libre) —</option>
-                {catalogue.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} — {c.prix}$
-                  </option>
-                ))}
-              </select>
-            </Champ>
-          )}
-
-          <Champ label="Nom de la prestation *">
-            <input
-              value={nomPrestation}
-              onChange={(e) => setNomPrestation(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              placeholder="Ex: Moteur, Peinture..."
-            />
-          </Champ>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Champ label="Plaque *">
-              <input
-                value={plaque}
-                onChange={(e) => setPlaque(e.target.value.toUpperCase())}
-                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-                placeholder="AB-123-CD"
-              />
-            </Champ>
-            <Champ label="Marque du véhicule *">
-              <input
-                value={marqueVehicule}
-                onChange={(e) => setMarqueVehicule(e.target.value)}
-                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-                placeholder="Ex: Karin Sultan"
-              />
-            </Champ>
-          </div>
-
-          <Champ label="Nom du client *">
-            <input
-              value={nomClient}
-              onChange={(e) => setNomClient(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              placeholder="Ex: John Doe"
-            />
-          </Champ>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Champ label="Prix ($) *">
-              <input
-                type="number"
-                min="0"
-                value={prix}
-                onChange={(e) => setPrix(e.target.value)}
-                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              />
-            </Champ>
-            <Champ label="Coût matériel ($)">
-              <input
-                type="number"
-                min="0"
-                value={coutMateriel}
-                onChange={(e) => setCoutMateriel(e.target.value)}
-                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              />
-            </Champ>
-          </div>
-
-          <Champ label="Notes (optionnel)">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10 resize-none"
-            />
-          </Champ>
-
-          {erreur && <p className="text-red-400 text-sm">{erreur}</p>}
-
-          <button
-            type="submit"
-            disabled={envoiEnCours}
-            className={`${couleur} text-white font-semibold py-2.5 rounded-lg text-sm mt-1 disabled:opacity-60`}
-          >
-            {envoiEnCours ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+function debutSemaineISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - d.getDay() + 1); // Lundi
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
 }
 
-function Champ({ label, children }) {
-  return (
-    <div>
-      <label className="text-sm text-gray-400 block mb-1.5">{label}</label>
-      {children}
-    </div>
-  );
+function calculerHeures(sessions) {
+  let totalMs = 0;
+  const maintenant = Date.now();
+  for (const s of sessions) {
+    const debut = new Date(s.debut).getTime();
+    const fin = s.fin ? new Date(s.fin).getTime() : maintenant;
+    totalMs += Math.max(0, fin - debut);
+  }
+  return totalMs / (1000 * 60 * 60);
 }
+
+router.post('/debut', (req, res) => {
+  const employeId = req.utilisateur.id;
+
+  const enCours = db
+    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
+    .get(employeId);
+  if (enCours) {
+    return res.status(409).json({ erreur: 'Une session est déjà en cours' });
+  }
+
+  db.prepare('INSERT INTO sessions_service (employe_id) VALUES (?)').run(employeId);
+  db.prepare('UPDATE employes SET en_service = 1 WHERE id = ?').run(employeId);
+  res.status(201).json({ ok: true });
+});
+
+router.post('/fin', (req, res) => {
+  const employeId = req.utilisateur.id;
+
+  const enCours = db
+    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
+    .get(employeId);
+  if (!enCours) {
+    db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
+    return res.json({ ok: true });
+  }
+
+  db.prepare("UPDATE sessions_service SET fin = datetime('now') WHERE id = ?").run(enCours.id);
+  db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
+  res.json({ ok: true });
+});
+
+router.get('/moi', (req, res) => {
+  const employeId = req.utilisateur.id;
+
+  const toutes = db
+    .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
+    .all(employeId);
+
+  const semaine = toutes.filter((s) => s.debut >= debutSemaineISO());
+
+  const heuresSemaine = calculerHeures(semaine);
+  const heuresTotal = calculerHeures(toutes);
+
+  res.json({
+    sessions: toutes.slice(0, 30),
+    en_service: toutes.some((s) => !s.fin),
+    heures_semaine: heuresSemaine,
+    montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
+    heures_total: heuresTotal,
+    montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
+    taux_horaire: TAUX_HORAIRE,
+  });
+});
+
+router.get('/equipe', (req, res) => {
+  if (!req.utilisateur.est_admin) {
+    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
+  }
+
+  const employes = db.prepare('SELECT id, nom_affiche FROM employes ORDER BY nom_affiche').all();
+  const debutSemaine = debutSemaineISO();
+
+  const resultat = employes.map((emp) => {
+    const toutes = db
+      .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
+      .all(emp.id);
+    const semaine = toutes.filter((s) => s.debut >= debutSemaine);
+    const heuresSemaine = calculerHeures(semaine);
+    const heuresTotal = calculerHeures(toutes);
+
+    return {
+      employe_id: emp.id,
+      nom_affiche: emp.nom_affiche,
+      en_service: toutes.some((s) => !s.fin),
+      heures_semaine: heuresSemaine,
+      montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
+      heures_total: heuresTotal,
+      montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
+    };
+  });
+
+  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE });
+});
+
+module.exports = router;
