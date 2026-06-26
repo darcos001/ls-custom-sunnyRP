@@ -1,15 +1,15 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { verifierToken } = require('../auth');
+const { verifierToken, SECRET } = require('../auth');
 
 const router = express.Router();
-router.use(verifierToken);
 
-const TAUX_HORAIRE = 100; // $ par heure
+const TAUX_HORAIRE = 100;
 
 function debutSemaineISO() {
   const d = new Date();
-  d.setDate(d.getDate() - d.getDay() + 1); // Lundi
+  d.setDate(d.getDate() - d.getDay() + 1);
   d.setHours(0, 0, 0, 0);
   return d.toISOString();
 }
@@ -25,14 +25,39 @@ function calculerHeures(sessions) {
   return totalMs / (1000 * 60 * 60);
 }
 
+function terminerSessionPourEmploye(employeId) {
+  const enCours = db
+    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
+    .get(employeId);
+  if (enCours) {
+    db.prepare("UPDATE sessions_service SET fin = datetime('now') WHERE id = ?").run(enCours.id);
+  }
+  db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
+}
+
+router.post('/fin-beacon', (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).end();
+  try {
+    const payload = jwt.verify(token, SECRET);
+    terminerSessionPourEmploye(payload.id);
+    res.status(204).end();
+  } catch (e) {
+    res.status(401).end();
+  }
+});
+
+router.use(verifierToken);
+
 router.post('/debut', (req, res) => {
   const employeId = req.utilisateur.id;
 
   const enCours = db
     .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
     .get(employeId);
+
   if (enCours) {
-    return res.status(409).json({ erreur: 'Une session est déjà en cours' });
+    db.prepare("UPDATE sessions_service SET fin = datetime('now') WHERE id = ?").run(enCours.id);
   }
 
   db.prepare('INSERT INTO sessions_service (employe_id) VALUES (?)').run(employeId);
@@ -41,18 +66,7 @@ router.post('/debut', (req, res) => {
 });
 
 router.post('/fin', (req, res) => {
-  const employeId = req.utilisateur.id;
-
-  const enCours = db
-    .prepare('SELECT id FROM sessions_service WHERE employe_id = ? AND fin IS NULL')
-    .get(employeId);
-  if (!enCours) {
-    db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
-    return res.json({ ok: true });
-  }
-
-  db.prepare("UPDATE sessions_service SET fin = datetime('now') WHERE id = ?").run(enCours.id);
-  db.prepare('UPDATE employes SET en_service = 0 WHERE id = ?').run(employeId);
+  terminerSessionPourEmploye(req.utilisateur.id);
   res.json({ ok: true });
 });
 
