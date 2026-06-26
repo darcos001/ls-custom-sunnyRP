@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  Home, UserCircle, Wrench, ShoppingBag, IdCard, Car, FileText, Clock, File,
+  Home, UserCircle, Wrench, ShoppingBag, Contact, Car, FileText, Clock, File,
 } from 'lucide-react';
 
 const liens = [
