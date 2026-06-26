@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IdCard, Search } from 'lucide-react';
+import { Contact, Search } from 'lucide-react';
 import { appelApi, formaterArgent, formaterDate } from '../api.js';
 
 export default function Clients() {
@@ -61,7 +61,7 @@ export default function Clients() {
           {listeClients.map((c) => (
             <div key={`${c.nom_client}-${c.plaque}`} className="bg-bg-panel rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3">
-                <IdCard size={18} className="text-accent-blue" />
+                <Contactsize={18} className="text-accent-blue" />
                 <h3 className="text-white font-semibold">{c.nom_client}</h3>
               </div>
               <div className="text-sm text-gray-400 space-y-1 mb-3">
