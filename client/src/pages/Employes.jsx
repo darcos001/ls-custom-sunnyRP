@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, ShieldCheck } from 'lucide-react';
+import { Plus, X, ShieldCheck, Trash2 } from 'lucide-react';
 import { appelApi } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -22,6 +22,19 @@ export default function Employes() {
       setGrades(g);
     } finally {
       setChargement(false);
+    }
+  }
+
+  async function supprimerEmploye(emp) {
+    const confirmation = confirm(
+      `Supprimer ${emp.nom_affiche} ? Cette action retire aussi tout son historique de réparations/customs et est irréversible.`
+    );
+    if (!confirmation) return;
+    try {
+      await appelApi(`/employes/${emp.id}`, { method: 'DELETE' });
+      setListe((prev) => prev.filter((e) => e.id !== emp.id));
+    } catch (e) {
+      alert(e.message);
     }
   }
 
@@ -54,6 +67,7 @@ export default function Employes() {
               <th className="text-left pb-3 font-medium">Commission</th>
               <th className="text-left pb-3 font-medium">Statut</th>
               <th className="text-left pb-3 font-medium">Rôle</th>
+              {employe.est_admin && <th className="pb-3"></th>}
             </tr>
           </thead>
           <tbody>
@@ -88,6 +102,19 @@ export default function Employes() {
                     <span className="text-gray-500 text-xs">Employé</span>
                   )}
                 </td>
+                {employe.est_admin && (
+                  <td className="py-3 text-right">
+                    {e.id !== employe.id && (
+                      <button
+                        onClick={() => supprimerEmploye(e)}
+                        className="text-gray-500 hover:text-red-400"
+                        title="Supprimer cet employé"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
