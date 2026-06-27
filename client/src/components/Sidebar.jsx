@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import {
-  Home, UserCircle, Wrench, ShoppingBag, Contact, Car, FileText, Clock, File,
+  Home, UserCircle, Wrench, ShoppingBag, Contact, Car, FileText, Clock, File, Wallet,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const liens = [
   { to: '/', label: 'Tableau de bord', icon: Home },
@@ -14,7 +15,11 @@ const liens = [
   { to: '/badgeuse', label: 'Badgeuse', icon: Clock },
 ];
 
+const lienAdmin = { to: '/paie', label: 'Paie', icon: Wallet };
+
 export default function Sidebar() {
+  const { employe } = useAuth();
+
   return (
     <aside className="w-[300px] bg-bg-panel border-r border-white/5 flex flex-col py-6 px-4 shrink-0">
       <div className="flex flex-col items-center mb-8">
@@ -44,6 +49,22 @@ export default function Sidebar() {
             {label}
           </NavLink>
         ))}
+
+        {employe?.est_admin && (
+          <NavLink
+            to={lienAdmin.to}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-accent-blue text-white'
+                  : 'text-gray-300 hover:bg-white/5 hover:text-white'
+              }`
+            }
+          >
+            <lienAdmin.icon size={18} />
+            {lienAdmin.label}
+          </NavLink>
+        )}
       </nav>
 
       <div className="mt-8">
