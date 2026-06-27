@@ -60,7 +60,22 @@ router.post('/', exigerAdmin, (req, res) => {
 
 router.put('/:id', exigerAdmin, (req, res) => {
   const { id } = req.params;
-  const { nom_affiche, grade_id, est_admin, mot_de_passe } = req.body;
+  const { identifiant, nom_affiche, grade_id, est_admin, mot_de_passe } = req.body;
+
+  if (!nom_affiche || !grade_id) {
+    return res.status(400).json({ erreur: 'Le nom et le grade sont requis' });
+  }
+
+  if (identifiant) {
+    const nouvelIdentifiant = identifiant.trim().toLowerCase();
+    const dejaPris = db
+      .prepare('SELECT id FROM employes WHERE identifiant = ? AND id != ?')
+      .get(nouvelIdentifiant, id);
+    if (dejaPris) {
+      return res.status(409).json({ erreur: 'Cet identifiant est déjà utilisé par un autre compte' });
+    }
+    db.prepare('UPDATE employes SET identifiant = ? WHERE id = ?').run(nouvelIdentifiant, id);
+  }
 
   db.prepare(
     'UPDATE employes SET nom_affiche = ?, grade_id = ?, est_admin = ? WHERE id = ?'
