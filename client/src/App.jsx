@@ -12,6 +12,7 @@ import Clients from './pages/Clients.jsx';
 import Contrats from './pages/Contrats.jsx';
 import Badgeuse from './pages/Badgeuse.jsx';
 import Documents from './pages/Documents.jsx';
+import Paie from './pages/Paie.jsx';
 
 function MisePagePrivee({ children }) {
   const { employe, chargement } = useAuth();
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="/employes" element={<MisePagePrivee><Employes /></MisePagePrivee>} />
       <Route path="/contrats" element={<MisePagePrivee><Contrats /></MisePagePrivee>} />
       <Route path="/badgeuse" element={<MisePagePrivee><Badgeuse /></MisePagePrivee>} />
+      <Route path="/paie" element={<MisePagePrivee><Paie /></MisePagePrivee>} />
       <Route path="/documents" element={<MisePagePrivee><Documents /></MisePagePrivee>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
