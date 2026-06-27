@@ -81,4 +81,4 @@ router.delete('/:id', exigerAdmin, (req, res) => {
     return res.status(403).json({ erreur: 'Tu ne peux pas te supprimer toi-même' });
   }
 
-  const employe = db.prepare('SELECT id FROM employes WHERE id =
+  const employe = db.prepare('SELECT id FROM employes WHERE id = ?').get(id);
