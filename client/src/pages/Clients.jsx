@@ -1,283 +1,211 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, ShieldCheck, Trash2, Pencil } from 'lucide-react';
-import { appelApi } from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { Contact, Search, Car, User, DollarSign, Wrench, Paintbrush } from 'lucide-react';
+import { appelApi, formaterArgent, formaterDate } from '../api.js';
 
-export default function Employes() {
-  const { employe } = useAuth();
-  const [liste, setListe] = useState([]);
-  const [grades, setGrades] = useState([]);
+export default function Clients() {
+  const [interventions, setInterventions] = useState([]);
+  const [recherche, setRecherche] = useState('');
   const [chargement, setChargement] = useState(true);
-  const [modaleOuverte, setModaleOuverte] = useState(false);
-  const [employeEnEdition, setEmployeEnEdition] = useState(null);
+
+  const [plaqueSaisie, setPlaqueSaisie] = useState('');
+  const [resultatPlaque, setResultatPlaque] = useState(null);
+  const [plaqueRecherchee, setPlaqueRecherchee] = useState('');
 
   useEffect(() => {
-    charger();
+    appelApi('/interventions')
+      .then(setInterventions)
+      .finally(() => setChargement(false));
   }, []);
 
-  async function charger() {
-    setChargement(true);
-    try {
-      const [l, g] = await Promise.all([appelApi('/employes'), appelApi('/grades')]);
-      setListe(l);
-      setGrades(g);
-    } finally {
-      setChargement(false);
+  function rechercherPlaque(e) {
+    e.preventDefault();
+    const cible = plaqueSaisie.trim().toUpperCase();
+    setPlaqueRecherchee(cible);
+    if (!cible) {
+      setResultatPlaque(null);
+      return;
     }
+    const trouvees = interventions
+      .filter((i) => i.plaque.toUpperCase() === cible)
+      .sort((a, b) => new Date(b.date_creation) - new Date(a.date_creation));
+    setResultatPlaque(trouvees);
   }
 
-  async function supprimerEmploye(emp) {
-    const confirmation = confirm(
-      `Supprimer ${emp.nom_affiche} ? Cette action retire aussi tout son historique de réparations/customs et est irréversible.`
-    );
-    if (!confirmation) return;
-    try {
-      await appelApi(`/employes/${emp.id}`, { method: 'DELETE' });
-      setListe((prev) => prev.filter((e) => e.id !== emp.id));
-    } catch (e) {
-      alert(e.message);
+  const clients = {};
+  interventions.forEach((i) => {
+    const cle = `${i.nom_client}__${i.plaque}`;
+    if (!clients[cle]) {
+      clients[cle] = {
+        nom_client: i.nom_client,
+        plaque: i.plaque,
+        vehicule: i.marque_vehicule,
+        interventions: [],
+        total_depense: 0,
+      };
     }
-  }
+    clients[cle].interventions.push(i);
+    clients[cle].total_depense += i.prix;
+  });
 
-  function ouvrirCreation() {
-    setEmployeEnEdition(null);
-    setModaleOuverte(true);
-  }
+  const listeClients = Object.values(clients).filter((c) => {
+    if (!recherche) return true;
+    const r = recherche.toLowerCase();
+    return c.nom_client.toLowerCase().includes(r) || c.plaque.toLowerCase().includes(r);
+  });
 
-  function ouvrirEdition(emp) {
-    setEmployeEnEdition(emp);
-    setModaleOuverte(true);
-  }
-
-  if (chargement) return <p className="text-gray-400 text-sm">Chargement...</p>;
+  const totalPlaque = resultatPlaque ? resultatPlaque.reduce((s, i) => s + i.prix, 0) : 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-gray-400 text-lg">
-          Gestion / <span className="text-white font-semibold">Équipe</span>
+      <div className="text-gray-400 text-lg">
+        Gestion / <span className="text-white font-semibold">Fiches Clients</span>
+      </div>
+
+      <div className="bg-bg-panel rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4 text-white font-semibold">
+          <Car size={18} className="text-accent-blue" />
+          Historique d'un véhicule par plaque
         </div>
-        {employe.est_admin && (
+        <form onSubmit={rechercherPlaque} className="flex gap-3 flex-wrap">
+          <input
+            value={plaqueSaisie}
+            onChange={(e) => setPlaqueSaisie(e.target.value.toUpperCase())}
+            placeholder="Ex: AB-123-CD"
+            className="flex-1 min-w-[200px] bg-bg-input rounded-lg px-4 py-2.5 text-sm text-white border border-white/10 font-mono"
+          />
           <button
-            onClick={ouvrirCreation}
-            className="flex items-center gap-2 bg-accent-blue text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
+            type="submit"
+            className="flex items-center gap-2 bg-accent-blue text-white text-sm font-semibold px-5 py-2.5 rounded-lg"
           >
-            <Plus size={16} />
-            Ajouter un employé
+            <Search size={16} />
+            Rechercher
           </button>
+        </form>
+
+        {resultatPlaque !== null && (
+          <div className="mt-5">
+            {resultatPlaque.length === 0 ? (
+              <p className="text-gray-500 text-sm py-4 text-center">
+                Aucune intervention trouvée pour la plaque <span className="font-mono">{plaqueRecherchee}</span>.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <InfoCarte
+                    icone={Car}
+                    couleur="#3b82f6"
+                    label="Véhicule"
+                    valeur={resultatPlaque[0].marque_vehicule}
+                  />
+                  <InfoCarte
+                    icone={User}
+                    couleur="#a855f7"
+                    label="Client le plus récent"
+                    valeur={resultatPlaque[0].nom_client}
+                  />
+                  <InfoCarte
+                    icone={DollarSign}
+                    couleur="#22c55e"
+                    label="Total dépensé"
+                    valeur={formaterArgent(totalPlaque)}
+                  />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[600px]">
+                    <thead>
+                      <tr className="text-gray-500 text-xs uppercase border-b border-white/5">
+                        <th className="text-left pb-2 font-medium">Date</th>
+                        <th className="text-left pb-2 font-medium">Type</th>
+                        <th className="text-left pb-2 font-medium">Client</th>
+                        <th className="text-left pb-2 font-medium">Mécano</th>
+                        <th className="text-right pb-2 font-medium">Prix</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resultatPlaque.map((i) => (
+                        <tr key={i.id} className="border-b border-white/5 last:border-0">
+                          <td className="py-2.5 text-gray-300 whitespace-nowrap">
+                            {formaterDate(i.date_creation)}
+                          </td>
+                          <td className="py-2.5">
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md ${
+                                i.type === 'custom'
+                                  ? 'bg-accent-blue/15 text-accent-blue'
+                                  : 'bg-accent-amber/15 text-accent-amber'
+                              }`}
+                            >
+                              {i.type === 'custom' ? <Paintbrush size={12} /> : <Wrench size={12} />}
+                              {i.nom_prestation}
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-gray-300">{i.nom_client}</td>
+                          <td className="py-2.5 text-gray-300">{i.mecano_nom}</td>
+                          <td className="py-2.5 text-right text-white font-semibold whitespace-nowrap">
+                            {formaterArgent(i.prix)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="bg-bg-panel rounded-xl p-5 overflow-x-auto">
-        <table className="w-full text-sm min-w-[600px]">
-          <thead>
-            <tr className="text-gray-500 text-xs uppercase border-b border-white/5">
-              <th className="text-left pb-3 font-medium">Nom</th>
-              <th className="text-left pb-3 font-medium">Identifiant</th>
-              <th className="text-left pb-3 font-medium">Grade</th>
-              <th className="text-left pb-3 font-medium">Commission</th>
-              <th className="text-left pb-3 font-medium">Statut</th>
-              <th className="text-left pb-3 font-medium">Rôle</th>
-              {employe.est_admin && <th className="pb-3"></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {liste.map((e) => (
-              <tr key={e.id} className="border-b border-white/5 last:border-0">
-                <td className="py-3 text-white font-medium">{e.nom_affiche}</td>
-                <td className="py-3 text-gray-400 font-mono text-xs">{e.identifiant}</td>
-                <td className="py-3">
-                  <span
-                    className="text-xs font-semibold px-2.5 py-1 rounded-md"
-                    style={{ backgroundColor: `${e.couleur}22`, color: e.couleur }}
-                  >
-                    {e.grade_nom}
-                  </span>
-                </td>
-                <td className="py-3 text-gray-300">{e.commission_pourcentage}%</td>
-                <td className="py-3">
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
-                      e.en_service ? 'bg-accent-green/15 text-accent-green' : 'bg-gray-500/15 text-gray-400'
-                    }`}
-                  >
-                    {e.en_service ? 'En service' : 'Hors service'}
-                  </span>
-                </td>
-                <td className="py-3">
-                  {e.est_admin ? (
-                    <span className="flex items-center gap-1 text-accent-amber text-xs font-semibold">
-                      <ShieldCheck size={14} /> Admin
-                    </span>
-                  ) : (
-                    <span className="text-gray-500 text-xs">Employé</span>
-                  )}
-                </td>
-                {employe.est_admin && (
-                  <td className="py-3 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        onClick={() => ouvrirEdition(e)}
-                        className="text-gray-500 hover:text-accent-blue"
-                        title="Modifier cet employé"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      {e.id !== employe.id && (
-                        <button
-                          onClick={() => supprimerEmploye(e)}
-                          className="text-gray-500 hover:text-red-400"
-                          title="Supprimer cet employé"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="relative max-w-md">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <input
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          placeholder="Rechercher un client ou une plaque..."
+          className="w-full bg-bg-input rounded-lg pl-10 pr-4 py-2.5 text-sm text-white border border-white/10"
+        />
       </div>
 
-      {modaleOuverte && (
-        <ModaleEmploye
-          grades={grades}
-          employeEnEdition={employeEnEdition}
-          surFermer={() => setModaleOuverte(false)}
-          surCree={() => {
-            setModaleOuverte(false);
-            charger();
-          }}
-        />
+      {chargement ? (
+        <p className="text-gray-400 text-sm">Chargement...</p>
+      ) : listeClients.length === 0 ? (
+        <p className="text-gray-500 text-sm py-10 text-center">Aucun client trouvé.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {listeClients.map((c) => (
+            <div key={`${c.nom_client}-${c.plaque}`} className="bg-bg-panel rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Contact size={18} className="text-accent-blue" />
+                <h3 className="text-white font-semibold">{c.nom_client}</h3>
+              </div>
+              <div className="text-sm text-gray-400 space-y-1 mb-3">
+                <div>Véhicule : {c.vehicule}</div>
+                <div className="font-mono text-xs">Plaque : {c.plaque}</div>
+              </div>
+              <div className="flex items-center justify-between text-sm pt-3 border-t border-white/5">
+                <span className="text-gray-400">{c.interventions.length} intervention(s)</span>
+                <span className="text-white font-semibold">{formaterArgent(c.total_depense)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function ModaleEmploye({ grades, employeEnEdition, surFermer, surCree }) {
-  const modeEdition = !!employeEnEdition;
-
-  const [identifiant, setIdentifiant] = useState(employeEnEdition?.identifiant || '');
-  const [motDePasse, setMotDePasse] = useState('');
-  const [nomAffiche, setNomAffiche] = useState(employeEnEdition?.nom_affiche || '');
-  const [gradeId, setGradeId] = useState(employeEnEdition?.grade_id || grades[0]?.id || '');
-  const [estAdmin, setEstAdmin] = useState(employeEnEdition?.est_admin || false);
-  const [erreur, setErreur] = useState('');
-  const [envoiEnCours, setEnvoiEnCours] = useState(false);
-
-  async function gererSoumission(e) {
-    e.preventDefault();
-    setErreur('');
-
-    if (!nomAffiche || !gradeId || (!modeEdition && (!identifiant || !motDePasse))) {
-      setErreur('Tous les champs obligatoires doivent être remplis');
-      return;
-    }
-
-    setEnvoiEnCours(true);
-    try {
-      if (modeEdition) {
-        await appelApi(`/employes/${employeEnEdition.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            identifiant,
-            nom_affiche: nomAffiche,
-            grade_id: Number(gradeId),
-            est_admin: estAdmin,
-            mot_de_passe: motDePasse || undefined,
-          }),
-        });
-      } else {
-        await appelApi('/employes', {
-          method: 'POST',
-          body: JSON.stringify({
-            identifiant,
-            mot_de_passe: motDePasse,
-            nom_affiche: nomAffiche,
-            grade_id: Number(gradeId),
-            est_admin: estAdmin,
-          }),
-        });
-      }
-      surCree();
-    } catch (e) {
-      setErreur(e.message);
-    } finally {
-      setEnvoiEnCours(false);
-    }
-  }
-
+function InfoCarte({ icone: Icon, couleur, label, valeur }) {
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-      <div className="bg-bg-panel rounded-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">
-            {modeEdition ? `Modifier ${employeEnEdition.nom_affiche}` : 'Nouvel employé'}
-          </h2>
-          <button onClick={surFermer} className="text-gray-400 hover:text-white">
-            <X size={20} />
-          </button>
-        </div>
-        <form onSubmit={gererSoumission} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Nom affiché</label>
-            <input
-              value={nomAffiche}
-              onChange={(e) => setNomAffiche(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              placeholder="Ex: jesus rivera"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Identifiant de connexion</label>
-            <input
-              value={identifiant}
-              onChange={(e) => setIdentifiant(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              placeholder="ex: jesus.rivera"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1.5">
-              Mot de passe {modeEdition && <span className="text-gray-500">(laisser vide pour ne pas changer)</span>}
-            </label>
-            <input
-              type="password"
-              value={motDePasse}
-              onChange={(e) => setMotDePasse(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              placeholder={modeEdition ? '••••••••' : ''}
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Grade</label>
-            <select
-              value={gradeId}
-              onChange={(e) => setGradeId(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-            >
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.nom} ({g.commission_pourcentage}%)
-                </option>
-              ))}
-            </select>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
-            <input type="checkbox" checked={estAdmin} onChange={(e) => setEstAdmin(e.target.checked)} />
-            Donner les droits administrateur
-          </label>
-          {erreur && <p className="text-red-400 text-sm">{erreur}</p>}
-          <button
-            type="submit"
-            disabled={envoiEnCours}
-            className="bg-accent-blue text-white font-semibold py-2.5 rounded-lg text-sm mt-1 disabled:opacity-60"
-          >
-            {envoiEnCours ? 'Enregistrement...' : modeEdition ? 'Enregistrer les modifications' : "Créer l'employé"}
-          </button>
-        </form>
+    <div className="bg-bg-card rounded-lg p-4 flex items-center gap-3">
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `${couleur}22`, color: couleur }}
+      >
+        <Icon size={16} />
+      </div>
+      <div>
+        <div className="text-xs text-gray-500">{label}</div>
+        <div className="text-white font-semibold text-sm">{valeur}</div>
       </div>
     </div>
   );
