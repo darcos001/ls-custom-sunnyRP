@@ -5,11 +5,11 @@ const { verifierToken, SECRET } = require('../auth');
 
 const router = express.Router();
 
-const TAUX_HORAIRE = 100;
+const TAUX_HORAIRE = 100; // $ par heure
 
 function debutSemaineISO() {
   const d = new Date();
-  d.setDate(d.getDate() - d.getDay() + 1);
+  d.setDate(d.getDate() - d.getDay() + 1); // Lundi
   d.setHours(0, 0, 0, 0);
   return d.toISOString();
 }
@@ -117,6 +117,57 @@ router.get('/equipe', (req, res) => {
       montant_semaine: Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100,
       heures_total: heuresTotal,
       montant_total: Math.round(heuresTotal * TAUX_HORAIRE * 100) / 100,
+    };
+  });
+
+  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE });
+});
+
+router.get('/paie', (req, res) => {
+  if (!req.utilisateur.est_admin) {
+    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
+  }
+
+  const debutSemaine = debutSemaineISO();
+
+  const employes = db
+    .prepare(
+      `SELECT e.id, e.nom_affiche, g.nom AS grade_nom, g.commission_pourcentage, g.couleur
+       FROM employes e
+       JOIN grades g ON g.id = e.grade_id
+       ORDER BY e.nom_affiche`
+    )
+    .all();
+
+  const resultat = employes.map((emp) => {
+    const commissions = db
+      .prepare(
+        `SELECT COALESCE(SUM(commission_montant), 0) AS total, COUNT(*) AS nb
+         FROM interventions WHERE employe_id = ? AND date_creation >= ?`
+      )
+      .get(emp.id, debutSemaine);
+
+    const sessions = db
+      .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
+      .all(emp.id);
+    const sessionsSemaine = sessions.filter((s) => s.debut >= debutSemaine);
+    const heuresSemaine = calculerHeures(sessionsSemaine);
+    const montantBadgeuse = Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100;
+
+    const montantCommissions = Math.round(commissions.total * 100) / 100;
+    const totalAPayer = Math.round((montantCommissions + montantBadgeuse) * 100) / 100;
+
+    return {
+      employe_id: emp.id,
+      nom_affiche: emp.nom_affiche,
+      grade_nom: emp.grade_nom,
+      commission_pourcentage: emp.commission_pourcentage,
+      couleur: emp.couleur,
+      interventions_count: commissions.nb,
+      montant_commissions: montantCommissions,
+      heures_badgeuse: heuresSemaine,
+      montant_badgeuse: montantBadgeuse,
+      total_a_payer: totalAPayer,
     };
   });
 
