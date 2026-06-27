@@ -82,3 +82,18 @@ router.delete('/:id', exigerAdmin, (req, res) => {
   }
 
   const employe = db.prepare('SELECT id FROM employes WHERE id = ?').get(id);
+  if (!employe) {
+    return res.status(404).json({ erreur: 'Employé introuvable' });
+  }
+
+  const suppressionComplete = db.transaction(() => {
+    db.prepare('DELETE FROM interventions WHERE employe_id = ?').run(id);
+    db.prepare('DELETE FROM sessions_service WHERE employe_id = ?').run(id);
+    db.prepare('DELETE FROM employes WHERE id = ?').run(id);
+  });
+  suppressionComplete();
+
+  res.json({ ok: true });
+});
+
+module.exports = router;
