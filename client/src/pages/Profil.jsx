@@ -46,12 +46,14 @@ export default function Profil() {
             titre="Interventions réalisées"
             valeur={stats.interventions_count}
           />
-          <CarteStat
-            icone={DollarSign}
-            couleur="#f59e0b"
-            titre="Chiffre d'affaires généré"
-            valeur={formaterArgent(stats.total_genere)}
-          />
+          {employe.est_admin && (
+            <CarteStat
+              icone={DollarSign}
+              couleur="#f59e0b"
+              titre="Chiffre d'affaires généré"
+              valeur={formaterArgent(stats.total_genere)}
+            />
+          )}
           <CarteStat
             icone={TrendingUp}
             couleur="#22c55e"
