@@ -7,11 +7,7 @@ router.use(verifierToken);
 
 function calculerMontants(employeId, prix, coutMateriel) {
   const employe = db
-    .prepare(
-      `SELECT e.id, g.commission_pourcentage
-       FROM employes e JOIN grades g ON g.id = e.grade_id
-       WHERE e.id = ?`
-    )
+    .prepare(`SELECT e.id, g.commission_pourcentage FROM employes e JOIN grades g ON g.id = e.grade_id WHERE e.id = ?`)
     .get(employeId);
   if (!employe) throw new Error('Employé introuvable');
   const margeBrute = prix - coutMateriel;
@@ -23,7 +19,7 @@ function calculerMontants(employeId, prix, coutMateriel) {
 const PRIX_REPARATION_FIXE = 750;
 
 router.post('/', (req, res) => {
-  const { type, nom_prestation, plaque, marque_vehicule, nom_client, employe_id, notes } = req.body;
+  const { type, nom_prestation, plaque, marque_vehicule, nom_client, employe_id, notes, contrat_id } = req.body;
   let { prix } = req.body;
   if (!type || !plaque || !marque_vehicule || !nom_client || !employe_id) {
     return res.status(400).json({ erreur: 'Tous les champs obligatoires doivent être remplis' });
@@ -47,11 +43,11 @@ router.post('/', (req, res) => {
     const resultat = db
       .prepare(
         `INSERT INTO interventions
-          (type, catalogue_id, nom_prestation, plaque, marque_vehicule, nom_client,
+          (type, catalogue_id, contrat_id, nom_prestation, plaque, marque_vehicule, nom_client,
            employe_id, prix, cout_materiel, commission_montant, benefice, notes)
-         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
       )
-      .run(type, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), commissionMontant, benefice, notes || null);
+      .run(type, contrat_id || null, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), commissionMontant, benefice, notes || null);
     res.status(201).json({ id: resultat.lastInsertRowid, commission: commissionMontant, benefice });
   } catch (e) {
     res.status(400).json({ erreur: e.message });
@@ -60,7 +56,7 @@ router.post('/', (req, res) => {
 
 router.get('/', (req, res) => {
   const { recherche, employe_id, type, depuis, jusqu_a, tri } = req.query;
-  let sql = `SELECT i.*, e.nom_affiche AS mecano_nom FROM interventions i JOIN employes e ON e.id = i.employe_id WHERE 1=1`;
+  let sql = `SELECT i.*, e.nom_affiche AS mecano_nom, c.nom AS contrat_nom FROM interventions i JOIN employes e ON e.id = i.employe_id LEFT JOIN contrats c ON c.id = i.contrat_id WHERE 1=1`;
   const params = [];
   if (recherche) {
     sql += ` AND (i.nom_client LIKE ? OR i.plaque LIKE ? OR i.marque_vehicule LIKE ? OR i.nom_prestation LIKE ?)`;
@@ -112,12 +108,7 @@ router.get('/stats/semaine', (req, res) => {
 router.get('/stats/employe/:id', (req, res) => {
   const { id } = req.params;
   const stats = db
-    .prepare(
-      `SELECT COUNT(*) AS interventions_count,
-              COALESCE(SUM(prix),0) AS total_genere,
-              COALESCE(SUM(commission_montant),0) AS total_commission
-       FROM interventions WHERE employe_id = ?`
-    )
+    .prepare(`SELECT COUNT(*) AS interventions_count, COALESCE(SUM(prix),0) AS total_genere, COALESCE(SUM(commission_montant),0) AS total_commission FROM interventions WHERE employe_id = ?`)
     .get(id);
   res.json(stats);
 });
