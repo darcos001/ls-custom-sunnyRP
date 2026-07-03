@@ -154,21 +154,23 @@ router.get('/stats/semaine', (req, res) => {
     .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total FROM interventions WHERE type='reparation' AND date_creation >= ?`)
     .get(debutISO);
   const customs = db
-    .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total, COALESCE(SUM(benefice),0) AS benef FROM interventions WHERE type='custom' AND date_creation >= ?`)
+    .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total_brut, COALESCE(SUM(benefice),0) AS benef FROM interventions WHERE type='custom' AND date_creation >= ?`)
     .get(debutISO);
-  const total = db
-    .prepare(`SELECT COALESCE(SUM(prix),0) AS total FROM interventions WHERE date_creation >= ?`)
-    .get(debutISO);
+
+  // Pour les customs : CA entreprise = 50% du prix brut
+  const customs_ca_entreprise = Math.round(customs.total_brut * 0.5 * 100) / 100;
+
+  // CA total = réparations complètes + 50% des customs seulement
+  const ca_total = Math.round((reparations.total + customs_ca_entreprise) * 100) / 100;
 
   res.json({
     reparations_count: reparations.c,
     reparations_total: reparations.total,
     customs_count: customs.c,
-    customs_total: customs.total,
+    customs_total: customs_ca_entreprise,
     customs_benefice: customs.benef,
-    ca_total: total.total,
+    ca_total: ca_total,
   });
-});
 
 router.get('/stats/employe/:id', (req, res) => {
   const { id } = req.params;
