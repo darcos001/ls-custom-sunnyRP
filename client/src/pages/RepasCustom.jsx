@@ -11,7 +11,7 @@ export default function RepasCustom() {
   const [lignes, setLignes] = useState([]);
   const [employes, setEmployes] = useState([]);
   const [chargement, setChargement] = useState(true);
-  const [modaleOuverte, setModaleOuverte] = useState(null); // 'reparation' | 'custom' | null
+  const [modaleOuverte, setModaleOuverte] = useState(null);
 
   const [recherche, setRecherche] = useState('');
   const [filtreEmploye, setFiltreEmploye] = useState('');
@@ -124,14 +124,16 @@ export default function RepasCustom() {
             valeur={stats.reparations_count}
             sousValeur={formaterArgent(stats.reparations_total)}
           />
-          <CarteStat
-            icone={DollarSign}
-            couleur="#f59e0b"
-            titre="Total Général"
-            valeur={formaterArgent(stats.ca_total)}
-            sousValeur="Revenus totaux"
-            sousValeurCouleur="#9ca3af"
-          />
+          {employe.est_admin && (
+            <CarteStat
+              icone={DollarSign}
+              couleur="#f59e0b"
+              titre="Total Général"
+              valeur={formaterArgent(stats.ca_total)}
+              sousValeur="Revenus totaux"
+              sousValeurCouleur="#9ca3af"
+            />
+          )}
           <CarteStat
             icone={TrendingUp}
             couleur="#22c55e"
