@@ -71,7 +71,7 @@ if (nbGrades === 0) {
   );
   insertGrade.run('Mécano Apprenti', 40, '#22c55e');
   insertGrade.run('Mécano Confirmé', 55, '#3b82f6');
-  insertGrade.run('Chef Mécano', 70, '#a855f7');
+  insertGrade.run('Chef Mécano', 65, '#a855f7');
   insertGrade.run('Patron', 100, '#f59e0b');
 }
 
