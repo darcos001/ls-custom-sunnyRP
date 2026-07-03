@@ -1,176 +1,59 @@
-import { useState, useEffect } from 'react';
-import { Plus, X, Trash2, FileText } from 'lucide-react';
-import { appelApi, formaterArgent } from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+const express = require('express');
+const db = require('../db');
+const { verifierToken, exigerAdmin } = require('../auth');
 
-export default function Contrats() {
-  const { employe } = useAuth();
-  const [contrats, setContrats] = useState([]);
-  const [chargement, setChargement] = useState(true);
-  const [modaleOuverte, setModaleOuverte] = useState(false);
+const router = express.Router();
+router.use(verifierToken);
 
-  useEffect(() => { charger(); }, []);
+router.get('/', (req, res) => {
+  const contrats = db.prepare('SELECT * FROM contrats WHERE actif = 1 ORDER BY nom').all();
+  const debutSemaine = new Date();
+  debutSemaine.setDate(debutSemaine.getDate() - debutSemaine.getDay() + 1);
+  debutSemaine.setHours(0, 0, 0, 0);
+  const debutISO = debutSemaine.toISOString();
+  const resultat = contrats.map((c) => {
+    const totalSemaine = db.prepare(`SELECT COALESCE(SUM(prix), 0) AS total FROM interventions WHERE contrat_id = ? AND date_creation >= ?`).get(c.id, debutISO);
+    const totalGeneral = db.prepare(`SELECT COALESCE(SUM(prix), 0) AS total FROM interventions WHERE contrat_id = ?`).get(c.id);
+    const plaques = db.prepare(`SELECT DISTINCT plaque, marque_vehicule, nom_client FROM interventions WHERE contrat_id = ? ORDER BY date_creation DESC`).all(c.id);
+    return { ...c, total_semaine: totalSemaine.total, total_impaye: totalGeneral.total, plaques };
+  });
+  res.json(resultat);
+});
 
-  async function charger() {
-    setChargement(true);
-    try {
-      const data = await appelApi('/contrats');
-      setContrats(data);
-    } finally {
-      setChargement(false);
+router.get('/:id/plaques', (req, res) => {
+  const { id } = req.params;
+  const plaques = db.prepare(`SELECT DISTINCT plaque, marque_vehicule, nom_client FROM interventions WHERE contrat_id = ? ORDER BY date_creation DESC`).all(id);
+  res.json(plaques);
+});
+
+router.post('/', exigerAdmin, (req, res) => {
+  const { nom, description } = req.body;
+  if (!nom) return res.status(400).json({ erreur: 'Le nom est obligatoire' });
+  const existant = db.prepare('SELECT id, actif FROM contrats WHERE nom = ?').get(nom.trim());
+  if (existant) {
+    if (existant.actif === 0) {
+      db.prepare('UPDATE contrats SET actif = 1, description = ? WHERE id = ?').run(description || null, existant.id);
+      return res.status(201).json({ id: existant.id });
+    } else {
+      return res.status(409).json({ erreur: 'Un contrat avec ce nom existe déjà' });
     }
   }
+  const resultat = db.prepare('INSERT INTO contrats (nom, description) VALUES (?, ?)').run(nom.trim(), description || null);
+  res.status(201).json({ id: resultat.lastInsertRowid });
+});
 
-  async function supprimer(contrat) {
-    if (!confirm(`Désactiver le contrat "${contrat.nom}" ? Les interventions liées seront conservées.`)) return;
-    try {
-      await appelApi(`/contrats/${contrat.id}`, { method: 'DELETE' });
-      setContrats((prev) => prev.filter((c) => c.id !== contrat.id));
-    } catch (e) {
-      alert(e.message);
-    }
-  }
+router.put('/:id', exigerAdmin, (req, res) => {
+  const { id } = req.params;
+  const { nom, description, actif } = req.body;
+  if (!nom) return res.status(400).json({ erreur: 'Le nom est obligatoire' });
+  db.prepare('UPDATE contrats SET nom = ?, description = ?, actif = ? WHERE id = ?').run(nom.trim(), description || null, actif !== undefined ? (actif ? 1 : 0) : 1, id);
+  res.json({ ok: true });
+});
 
-  if (chargement) return <p className="text-gray-400 text-sm">Chargement...</p>;
+router.delete('/:id', exigerAdmin, (req, res) => {
+  const { id } = req.params;
+  db.prepare('UPDATE contrats SET actif = 0 WHERE id = ?').run(id);
+  res.json({ ok: true });
+});
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-gray-400 text-lg">
-          Gestion / <span className="text-white font-semibold">Contrats</span>
-        </div>
-        {employe.est_admin && (
-          <button
-            onClick={() => setModaleOuverte(true)}
-            className="flex items-center gap-2 bg-accent-blue text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
-          >
-            <Plus size={16} />
-            Nouveau contrat
-          </button>
-        )}
-      </div>
-
-      {contrats.length === 0 ? (
-        <div className="bg-bg-panel rounded-xl p-10 flex flex-col items-center justify-center text-center gap-3">
-          <div className="w-14 h-14 rounded-xl bg-bg-card flex items-center justify-center text-accent-blue">
-            <FileText size={26} />
-          </div>
-          <p className="text-white font-semibold">Aucun contrat</p>
-          <p className="text-gray-500 text-sm max-w-md">
-            Crée des contrats pour des entreprises ou clients récurrents. Ils seront sélectionnables dans le formulaire de réparation/custom.
-          </p>
-        </div>
-      ) : (
-        <div className="bg-bg-panel rounded-xl p-5 overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
-            <thead>
-              <tr className="text-gray-500 text-xs uppercase border-b border-white/5">
-                <th className="text-left pb-3 font-medium">Nom</th>
-                <th className="text-left pb-3 font-medium">Description</th>
-                <th className="text-left pb-3 font-medium">Plaques connues</th>
-                <th className="text-right pb-3 font-medium">Total semaine</th>
-                <th className="text-right pb-3 font-medium">Total général</th>
-                {employe.est_admin && <th className="pb-3"></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {contrats.map((c) => (
-                <tr key={c.id} className="border-b border-white/5 last:border-0">
-                  <td className="py-3 text-white font-semibold">{c.nom}</td>
-                  <td className="py-3 text-gray-400 text-xs max-w-[200px] truncate">{c.description || '—'}</td>
-                  <td className="py-3">
-                    {c.plaques.length === 0 ? (
-                      <span className="text-gray-500 text-xs">Aucune encore</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {c.plaques.slice(0, 3).map((p) => (
-                          <span key={p.plaque} className="text-xs font-mono bg-bg-card px-2 py-0.5 rounded text-gray-300">
-                            {p.plaque}
-                          </span>
-                        ))}
-                        {c.plaques.length > 3 && (
-                          <span className="text-xs text-gray-500">+{c.plaques.length - 3}</span>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 text-right text-white font-semibold">{formaterArgent(c.total_semaine)}</td>
-                  <td className="py-3 text-right">
-                    <span className={c.total_impaye > 0 ? 'text-accent-amber font-semibold' : 'text-gray-400'}>
-                      {formaterArgent(c.total_impaye)}
-                    </span>
-                  </td>
-                  {employe.est_admin && (
-                    <td className="py-3 text-right">
-                      <button onClick={() => supprimer(c)} className="text-gray-500 hover:text-red-400" title="Supprimer">
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {modaleOuverte && (
-        <ModaleContrat
-          surFermer={() => setModaleOuverte(false)}
-          surCree={() => { setModaleOuverte(false); charger(); }}
-        />
-      )}
-    </div>
-  );
-}
-
-function ModaleContrat({ surFermer, surCree }) {
-  const [nom, setNom] = useState('');
-  const [description, setDescription] = useState('');
-  const [erreur, setErreur] = useState('');
-  const [envoiEnCours, setEnvoiEnCours] = useState(false);
-
-  async function gererSoumission(e) {
-    e.preventDefault();
-    if (!nom.trim()) { setErreur('Le nom du contrat est obligatoire'); return; }
-    setEnvoiEnCours(true);
-    try {
-      await appelApi('/contrats', { method: 'POST', body: JSON.stringify({ nom, description }) });
-      surCree();
-    } catch (e) {
-      setErreur(e.message);
-    } finally {
-      setEnvoiEnCours(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-      <div className="bg-bg-panel rounded-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">Nouveau contrat</h2>
-          <button onClick={surFermer} className="text-gray-400 hover:text-white"><X size={20} /></button>
-        </div>
-        <form onSubmit={gererSoumission} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Nom du contrat / entreprise *</label>
-            <input value={nom} onChange={(e) => setNom(e.target.value)}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-              placeholder="Ex: SASP, Dynasty 8, Gouv..." autoFocus />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Description (optionnel)</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
-              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10 resize-none"
-              placeholder="Ex: 5 réparations max par semaine..." />
-          </div>
-          {erreur && <p className="text-red-400 text-sm">{erreur}</p>}
-          <button type="submit" disabled={envoiEnCours}
-            className="bg-accent-blue text-white font-semibold py-2.5 rounded-lg text-sm mt-1 disabled:opacity-60">
-            {envoiEnCours ? 'Création...' : 'Créer le contrat'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
+module.exports = router;
