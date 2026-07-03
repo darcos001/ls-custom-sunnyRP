@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-require('./db'); // initialise la base de données au démarrage
+require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,8 +17,8 @@ app.use('/api/grades', require('./routes/grades'));
 app.use('/api/catalogue', require('./routes/catalogue'));
 app.use('/api/interventions', require('./routes/interventions'));
 app.use('/api/badgeuse', require('./routes/badgeuse'));
+app.use('/api/contrats', require('./routes/contrats'));
 
-// En production : sert aussi le frontend déjà construit (dossier client/dist)
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));
 app.get('*', (req, res, next) => {
