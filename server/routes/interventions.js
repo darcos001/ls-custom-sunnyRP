@@ -5,7 +5,7 @@ const { verifierToken } = require('../auth');
 const router = express.Router();
 router.use(verifierToken);
 
-// Calcule la commission et le bénéfice pour un employé donné et un prix donné
+// Calcule la commission et le bénéfice selon le % du grade (utilisé pour les réparations)
 function calculerMontants(employeId, prix, coutMateriel) {
   const employe = db
     .prepare(
@@ -30,7 +30,7 @@ const PRIX_REPARATION_FIXE = 750;
 // Créer une intervention (réparation ou custom)
 router.post('/', (req, res) => {
   const {
-    type, // 'reparation' | 'custom'
+    type,
     nom_prestation,
     plaque,
     marque_vehicule,
@@ -53,7 +53,18 @@ router.post('/', (req, res) => {
   const nomFinal = type === 'reparation' ? (nom_prestation || 'Réparation') : (nom_prestation || 'Custom');
 
   try {
-    const { commissionMontant, benefice } = calculerMontants(employe_id, Number(prix), 0);
+    let commissionMontant, benefice;
+
+    if (type === 'custom') {
+      // Pour les customs : toujours 50% fixe, peu importe le grade
+      commissionMontant = Math.round(Number(prix) * 0.5 * 100) / 100;
+      benefice = Math.round((Number(prix) - commissionMontant) * 100) / 100;
+    } else {
+      // Pour les réparations : % du grade appliqué sur le prix fixe
+      const resultatCalc = calculerMontants(employe_id, Number(prix), 0);
+      commissionMontant = resultatCalc.commissionMontant;
+      benefice = resultatCalc.benefice;
+    }
 
     const resultat = db
       .prepare(
@@ -81,7 +92,7 @@ router.post('/', (req, res) => {
   }
 });
 
-// Liste avec filtres (recherche, mécanicien, semaine, tri)
+// Liste avec filtres
 router.get('/', (req, res) => {
   const { recherche, employe_id, type, depuis, jusqu_a, tri } = req.query;
 
@@ -132,10 +143,10 @@ router.delete('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// --- Statistiques pour le tableau de bord ---
+// Statistiques pour le tableau de bord
 router.get('/stats/semaine', (req, res) => {
   const debutSemaine = new Date();
-  debutSemaine.setDate(debutSemaine.getDate() - debutSemaine.getDay() + 1); // Lundi
+  debutSemaine.setDate(debutSemaine.getDate() - debutSemaine.getDay() + 1);
   debutSemaine.setHours(0, 0, 0, 0);
   const debutISO = debutSemaine.toISOString();
 
