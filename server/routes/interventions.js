@@ -58,6 +58,9 @@ router.post('/', (req, res) => {
          VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
       )
       .run(type, contrat_id || null, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), commissionMontant, benefice, notes || null);
+    if (marque_vehicule && marque_vehicule.trim() && marque_vehicule !== 'Kit de réparation') {
+      db.prepare('INSERT OR IGNORE INTO marques_vehicules (nom) VALUES (?)').run(marque_vehicule.trim());
+    }
     res.status(201).json({ id: resultat.lastInsertRowid, commission: commissionMontant, benefice });
   } catch (e) {
     res.status(400).json({ erreur: e.message });
