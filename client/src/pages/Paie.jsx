@@ -1,23 +1,47 @@
 import { useState, useEffect } from 'react';
-import { Wallet, DollarSign, Wrench, Clock } from 'lucide-react';
+import { Wallet, DollarSign, Wrench, Clock, RotateCcw } from 'lucide-react';
 import { appelApi, formaterArgent } from '../api.js';
 
 export default function Paie() {
   const [donnees, setDonnees] = useState(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState('');
+  const [reinitialisationEnCours, setReinitialisationEnCours] = useState(false);
 
   useEffect(() => {
+    charger();
+  }, []);
+
+  function charger() {
+    setChargement(true);
     appelApi('/badgeuse/paie')
       .then(setDonnees)
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false));
-  }, []);
+  }
+
+  async function reinitialiserPaie() {
+    if (!confirm("Réinitialiser les paies ? Ça remet tous les compteurs à 0 (les commissions et heures déjà comptées seront considérées comme payées). Cette action est irréversible.")) return;
+    setReinitialisationEnCours(true);
+    try {
+      await appelApi('/badgeuse/paie/reset', { method: 'POST' });
+      charger();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setReinitialisationEnCours(false);
+    }
+  }
 
   function formaterHeures(h) {
     const heures = Math.floor(h);
     const minutes = Math.round((h - heures) * 60);
     return `${heures}h${minutes.toString().padStart(2, '0')}`;
+  }
+
+  function formaterDateDepuis(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
   if (chargement) return <p className="text-gray-400 text-sm">Chargement...</p>;
@@ -27,20 +51,31 @@ export default function Paie() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-gray-400 text-lg">
-        Gestion / <span className="text-white font-semibold">Paie</span>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="text-gray-400 text-lg">
+          Gestion / <span className="text-white font-semibold">Paie</span>
+        </div>
+        <button
+          onClick={reinitialiserPaie}
+          disabled={reinitialisationEnCours}
+          className="flex items-center gap-2 bg-bg-card text-white text-sm font-semibold px-4 py-2.5 rounded-lg border border-white/10 hover:border-red-400/50 disabled:opacity-60"
+        >
+          <RotateCcw size={16} />
+          {reinitialisationEnCours ? 'Réinitialisation...' : 'Réinitialiser les paies'}
+        </button>
       </div>
 
       <div className="bg-bg-panel rounded-xl p-5">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 text-white font-semibold">
             <Wallet size={18} className="text-accent-green" />
-            Total à payer cette semaine
+            Total à payer
           </div>
           <span className="text-2xl font-bold text-accent-green">{formaterArgent(totalGeneral)}</span>
         </div>
         <p className="text-gray-500 text-xs">
           Commissions des réparations/customs + heures de badgeuse ({donnees.taux_horaire} $/heure)
+          {donnees.depuis && <> — depuis le {formaterDateDepuis(donnees.depuis)}</>}
         </p>
       </div>
 
