@@ -27,26 +27,30 @@ router.get('/:id/plaques', (req, res) => {
 });
 
 router.post('/', exigerAdmin, (req, res) => {
-  const { nom, description } = req.body;
+  const { nom, description, prix_reparation, prix_kit } = req.body;
   if (!nom) return res.status(400).json({ erreur: 'Le nom est obligatoire' });
+  const prixRepa = prix_reparation === '' || prix_reparation == null ? null : Number(prix_reparation);
+  const prixKit = prix_kit === '' || prix_kit == null ? null : Number(prix_kit);
   const existant = db.prepare('SELECT id, actif FROM contrats WHERE nom = ?').get(nom.trim());
   if (existant) {
     if (existant.actif === 0) {
-      db.prepare('UPDATE contrats SET actif = 1, description = ? WHERE id = ?').run(description || null, existant.id);
+      db.prepare('UPDATE contrats SET actif = 1, description = ?, prix_reparation = ?, prix_kit = ? WHERE id = ?').run(description || null, prixRepa, prixKit, existant.id);
       return res.status(201).json({ id: existant.id });
     } else {
       return res.status(409).json({ erreur: 'Un contrat avec ce nom existe déjà' });
     }
   }
-  const resultat = db.prepare('INSERT INTO contrats (nom, description) VALUES (?, ?)').run(nom.trim(), description || null);
+  const resultat = db.prepare('INSERT INTO contrats (nom, description, prix_reparation, prix_kit) VALUES (?, ?, ?, ?)').run(nom.trim(), description || null, prixRepa, prixKit);
   res.status(201).json({ id: resultat.lastInsertRowid });
 });
 
 router.put('/:id', exigerAdmin, (req, res) => {
   const { id } = req.params;
-  const { nom, description, actif } = req.body;
+  const { nom, description, actif, prix_reparation, prix_kit } = req.body;
   if (!nom) return res.status(400).json({ erreur: 'Le nom est obligatoire' });
-  db.prepare('UPDATE contrats SET nom = ?, description = ?, actif = ? WHERE id = ?').run(nom.trim(), description || null, actif !== undefined ? (actif ? 1 : 0) : 1, id);
+  const prixRepa = prix_reparation === '' || prix_reparation == null ? null : Number(prix_reparation);
+  const prixKit = prix_kit === '' || prix_kit == null ? null : Number(prix_kit);
+  db.prepare('UPDATE contrats SET nom = ?, description = ?, prix_reparation = ?, prix_kit = ?, actif = ? WHERE id = ?').run(nom.trim(), description || null, prixRepa, prixKit, actif !== undefined ? (actif ? 1 : 0) : 1, id);
   res.json({ ok: true });
 });
 
