@@ -8,7 +8,9 @@ router.use(verifierToken);
 router.get('/', (req, res) => {
   const contrats = db.prepare('SELECT * FROM contrats WHERE actif = 1 ORDER BY nom').all();
   const debutSemaine = new Date();
-  debutSemaine.setDate(debutSemaine.getDate() - debutSemaine.getDay() + 1);
+  const jour = debutSemaine.getDay();
+  const decalage = jour === 0 ? -6 : 1 - jour;
+  debutSemaine.setDate(debutSemaine.getDate() + decalage);
   debutSemaine.setHours(0, 0, 0, 0);
   const debutISO = debutSemaine.toISOString();
   const resultat = contrats.map((c) => {
