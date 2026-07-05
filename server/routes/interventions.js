@@ -97,7 +97,9 @@ router.delete('/:id', (req, res) => {
 
 router.get('/stats/semaine', (req, res) => {
   const debutSemaine = new Date();
-  debutSemaine.setDate(debutSemaine.getDate() - debutSemaine.getDay() + 1);
+  const jour = debutSemaine.getDay();
+  const decalage = jour === 0 ? -6 : 1 - jour;
+  debutSemaine.setDate(debutSemaine.getDate() + decalage);
   debutSemaine.setHours(0, 0, 0, 0);
   const debutISO = debutSemaine.toISOString();
   const reparations = db
