@@ -12,6 +12,7 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
   const [contratId, setContratId] = useState('');
   const [plaquesContrat, setPlaquesContrat] = useState([]);
   const [plaqueManuelle, setPlaqueManuelle] = useState(false);
+  const [marquesConnues, setMarquesConnues] = useState([]);
 
   const [description, setDescription] = useState('');
   const [plaque, setPlaque] = useState('');
@@ -31,6 +32,7 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
 
   useEffect(() => {
     appelApi('/contrats').then(setContrats).catch(() => {});
+    appelApi('/marques').then(setMarquesConnues).catch(() => {});
   }, []);
 
   async function choisirContrat(id) {
@@ -148,7 +150,7 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
               <Champ label="Marque du véhicule *">
                 <input value={marqueVehicule} onChange={(e) => setMarqueVehicule(e.target.value)}
                   className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-                  placeholder="Ex: Karin Sultan" />
+                  placeholder="Ex: Karin Sultan" list="marques-vehicules-liste" />
               </Champ>
             </div>
           )}
@@ -157,9 +159,13 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
             <Champ label="Marque du véhicule *">
               <input value={marqueVehicule} onChange={(e) => setMarqueVehicule(e.target.value)}
                 className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
-                placeholder="Ex: Karin Sultan" />
+                placeholder="Ex: Karin Sultan" list="marques-vehicules-liste" />
             </Champ>
           )}
+
+          <datalist id="marques-vehicules-liste">
+            {marquesConnues.map((m) => <option key={m.id} value={m.nom} />)}
+          </datalist>
 
           <Champ label="Nom du client *">
             <input value={nomClient} onChange={(e) => setNomClient(e.target.value)}
