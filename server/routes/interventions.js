@@ -25,8 +25,17 @@ router.post('/', (req, res) => {
     return res.status(400).json({ erreur: 'Tous les champs obligatoires doivent être remplis' });
   }
   if (type === 'reparation') {
-    const qte = Number(quantite) > 0 ? Number(quantite) : 1;
-    prix = PRIX_REPARATION_FIXE * qte;
+    const contrat = contrat_id
+      ? db.prepare('SELECT prix_reparation, prix_kit FROM contrats WHERE id = ?').get(contrat_id)
+      : null;
+    const estKit = quantite !== undefined && quantite !== null && quantite !== '';
+    if (estKit) {
+      const qte = Number(quantite) > 0 ? Number(quantite) : 1;
+      const prixUnitaire = contrat && contrat.prix_kit != null ? contrat.prix_kit : PRIX_REPARATION_FIXE;
+      prix = prixUnitaire * qte;
+    } else {
+      prix = contrat && contrat.prix_reparation != null ? contrat.prix_reparation : PRIX_REPARATION_FIXE;
+    }
   } else if (prix === undefined || prix === null || prix === '') {
     return res.status(400).json({ erreur: 'Le prix est obligatoire pour un custom' });
   }
