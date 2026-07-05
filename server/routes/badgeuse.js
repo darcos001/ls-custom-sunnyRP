@@ -7,13 +7,17 @@ const router = express.Router();
 
 const TAUX_HORAIRE = 100; // $ par heure
 
+function versDateSQLite(d) {
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 function debutSemaineISO() {
   const d = new Date();
   const jour = d.getDay();
   const decalage = jour === 0 ? -6 : 1 - jour;
   d.setDate(d.getDate() + decalage); // Lundi
   d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  return versDateSQLite(d);
 }
 
 function dateDepuisPourPaie() {
@@ -185,7 +189,7 @@ router.post('/paie/reset', (req, res) => {
   if (!req.utilisateur.est_admin) {
     return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
   }
-  const maintenant = new Date().toISOString();
+  const maintenant = versDateSQLite(new Date());
   db.prepare('UPDATE parametres_paie SET date_reset = ? WHERE id = 1').run(maintenant);
   res.json({ ok: true, depuis: maintenant });
 });
