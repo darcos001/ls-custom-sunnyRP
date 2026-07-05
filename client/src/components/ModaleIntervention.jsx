@@ -23,6 +23,11 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
   const estCustom = type === 'custom';
+  const contratSelectionne = contrats.find((c) => String(c.id) === String(contratId));
+  const prixReparationApplique =
+    contratSelectionne && contratSelectionne.prix_reparation != null
+      ? contratSelectionne.prix_reparation
+      : PRIX_REPARATION_FIXE;
 
   useEffect(() => {
     appelApi('/contrats').then(setContrats).catch(() => {});
@@ -103,7 +108,10 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
         <form onSubmit={gererSoumission} className="flex flex-col gap-4">
           {!estCustom && (
             <div className="bg-bg-card rounded-lg px-4 py-3 text-sm text-gray-300">
-              Prix fixe : <span className="text-white font-semibold">{PRIX_REPARATION_FIXE} $</span>
+              Prix : <span className="text-white font-semibold">{prixReparationApplique} $</span>
+              {contratSelectionne && contratSelectionne.prix_reparation != null && (
+                <span className="text-xs text-accent-blue ml-2">(tarif contrat {contratSelectionne.nom})</span>
+              )}
             </div>
           )}
 
