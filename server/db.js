@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS marques_vehicules (
   date_creation TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS parametres_paie (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  date_reset TEXT
+);
+
 CREATE TABLE IF NOT EXISTS sessions_service (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   employe_id INTEGER NOT NULL,
@@ -88,6 +93,8 @@ if (!colonnesContrats.some((c) => c.name === 'prix_reparation')) {
 if (!colonnesContrats.some((c) => c.name === 'prix_kit')) {
   db.exec('ALTER TABLE contrats ADD COLUMN prix_kit REAL');
 }
+
+db.prepare('INSERT OR IGNORE INTO parametres_paie (id, date_reset) VALUES (1, NULL)').run();
 
 const nbGrades = db.prepare('SELECT COUNT(*) AS c FROM grades').get().c;
 if (nbGrades === 0) {
