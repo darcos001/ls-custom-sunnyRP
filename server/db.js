@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS contrats (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nom TEXT NOT NULL UNIQUE,
   description TEXT,
+  prix_reparation REAL,
+  prix_kit REAL,
   actif INTEGER NOT NULL DEFAULT 1,
   date_creation TEXT DEFAULT (datetime('now'))
 );
@@ -71,6 +73,15 @@ CREATE TABLE IF NOT EXISTS sessions_service (
   FOREIGN KEY (employe_id) REFERENCES employes(id)
 );
 `);
+
+// --- Migration : ajoute les colonnes de prix si la base existait déjà avant leur ajout ---
+const colonnesContrats = db.prepare("PRAGMA table_info(contrats)").all();
+if (!colonnesContrats.some((c) => c.name === 'prix_reparation')) {
+  db.exec('ALTER TABLE contrats ADD COLUMN prix_reparation REAL');
+}
+if (!colonnesContrats.some((c) => c.name === 'prix_kit')) {
+  db.exec('ALTER TABLE contrats ADD COLUMN prix_kit REAL');
+}
 
 const nbGrades = db.prepare('SELECT COUNT(*) AS c FROM grades').get().c;
 if (nbGrades === 0) {
