@@ -8,17 +8,8 @@ const DB_DIR = process.env.DB_PATH || path.join(__dirname, 'data');
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
-const DB_FILE = path.join(DB_DIR, 'data.sqlite');
 
-const db = new Database(DB_FILE);
-// IMPORTANT : DATA_DIR doit pointer vers un VOLUME PERSISTANT sur Railway
-// (Settings > Volumes > Mount Path, ex: /app/data), sinon la base est
-// effacée à chaque redéploiement car le code (et donc server/data.sqlite)
-// est reconstruit à neuf à chaque déploiement.
-const DATA_DIR = process.env.DATA_DIR || __dirname;
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-const db = new Database(path.join(DATA_DIR, 'data.sqlite'));
+const db = new Database(path.join(DB_DIR, 'data.sqlite'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
@@ -54,8 +45,6 @@ CREATE TABLE IF NOT EXISTS contrats (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nom TEXT NOT NULL UNIQUE,
   description TEXT,
-  prix_reparation REAL,
-  prix_kit REAL,
   actif INTEGER NOT NULL DEFAULT 1,
   date_creation TEXT DEFAULT (datetime('now'))
 );
@@ -81,17 +70,6 @@ CREATE TABLE IF NOT EXISTS interventions (
   FOREIGN KEY (contrat_id) REFERENCES contrats(id)
 );
 
-CREATE TABLE IF NOT EXISTS marques_vehicules (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  nom TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  date_creation TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS parametres_paie (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  date_reset TEXT
-);
-
 CREATE TABLE IF NOT EXISTS sessions_service (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   employe_id INTEGER NOT NULL,
@@ -100,17 +78,6 @@ CREATE TABLE IF NOT EXISTS sessions_service (
   FOREIGN KEY (employe_id) REFERENCES employes(id)
 );
 `);
-
-// --- Migration : ajoute les colonnes de prix si la base existait déjà avant leur ajout ---
-const colonnesContrats = db.prepare("PRAGMA table_info(contrats)").all();
-if (!colonnesContrats.some((c) => c.name === 'prix_reparation')) {
-  db.exec('ALTER TABLE contrats ADD COLUMN prix_reparation REAL');
-}
-if (!colonnesContrats.some((c) => c.name === 'prix_kit')) {
-  db.exec('ALTER TABLE contrats ADD COLUMN prix_kit REAL');
-}
-
-db.prepare('INSERT OR IGNORE INTO parametres_paie (id, date_reset) VALUES (1, NULL)').run();
 
 const nbGrades = db.prepare('SELECT COUNT(*) AS c FROM grades').get().c;
 if (nbGrades === 0) {
