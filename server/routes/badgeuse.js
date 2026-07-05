@@ -20,9 +20,16 @@ function debutSemaineISO() {
   return versDateSQLite(d);
 }
 
+function normaliserDate(valeur) {
+  if (!valeur) return valeur;
+  // Corrige rétroactivement une ancienne valeur enregistrée au format "2026-07-05T16:40:00.000Z"
+  // au lieu du format SQLite "2026-07-05 16:40:00", pour que les comparaisons de dates marchent.
+  return valeur.includes('T') ? valeur.slice(0, 19).replace('T', ' ') : valeur;
+}
+
 function dateDepuisPourPaie() {
   const ligne = db.prepare('SELECT date_reset FROM parametres_paie WHERE id = 1').get();
-  return (ligne && ligne.date_reset) || debutSemaineISO();
+  return normaliserDate(ligne && ligne.date_reset) || debutSemaineISO();
 }
 
 function calculerHeures(sessions) {
