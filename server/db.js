@@ -65,6 +65,12 @@ CREATE TABLE IF NOT EXISTS interventions (
   FOREIGN KEY (contrat_id) REFERENCES contrats(id)
 );
 
+CREATE TABLE IF NOT EXISTS marques_vehicules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  date_creation TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessions_service (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   employe_id INTEGER NOT NULL,
