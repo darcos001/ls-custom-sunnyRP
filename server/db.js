@@ -1,8 +1,16 @@
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'data.sqlite'));
+// IMPORTANT : DATA_DIR doit pointer vers un VOLUME PERSISTANT sur Railway
+// (Settings > Volumes > Mount Path, ex: /app/data), sinon la base est
+// effacée à chaque redéploiement car le code (et donc server/data.sqlite)
+// est reconstruit à neuf à chaque déploiement.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const db = new Database(path.join(DATA_DIR, 'data.sqlite'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
