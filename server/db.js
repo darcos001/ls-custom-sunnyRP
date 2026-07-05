@@ -1,8 +1,16 @@
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
 
+// Utilise le dossier persistant si défini (Railway Volume), sinon dossier local
+const DB_DIR = process.env.DB_PATH || path.join(__dirname, 'data');
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
+const DB_FILE = path.join(DB_DIR, 'data.sqlite');
+
+const db = new Database(DB_FILE);
 // IMPORTANT : DATA_DIR doit pointer vers un VOLUME PERSISTANT sur Railway
 // (Settings > Volumes > Mount Path, ex: /app/data), sinon la base est
 // effacée à chaque redéploiement car le code (et donc server/data.sqlite)
