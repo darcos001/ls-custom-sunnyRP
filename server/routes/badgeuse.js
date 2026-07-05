@@ -14,6 +14,11 @@ function debutSemaineISO() {
   return d.toISOString();
 }
 
+function dateDepuisPourPaie() {
+  const ligne = db.prepare('SELECT date_reset FROM parametres_paie WHERE id = 1').get();
+  return (ligne && ligne.date_reset) || debutSemaineISO();
+}
+
 function calculerHeures(sessions) {
   let totalMs = 0;
   const maintenant = Date.now();
@@ -128,7 +133,7 @@ router.get('/paie', (req, res) => {
     return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
   }
 
-  const debutSemaine = debutSemaineISO();
+  const depuis = dateDepuisPourPaie();
 
   const employes = db
     .prepare(
@@ -145,14 +150,14 @@ router.get('/paie', (req, res) => {
         `SELECT COALESCE(SUM(commission_montant), 0) AS total, COUNT(*) AS nb
          FROM interventions WHERE employe_id = ? AND date_creation >= ?`
       )
-      .get(emp.id, debutSemaine);
+      .get(emp.id, depuis);
 
     const sessions = db
       .prepare('SELECT * FROM sessions_service WHERE employe_id = ? ORDER BY debut DESC')
       .all(emp.id);
-    const sessionsSemaine = sessions.filter((s) => s.debut >= debutSemaine);
-    const heuresSemaine = calculerHeures(sessionsSemaine);
-    const montantBadgeuse = Math.round(heuresSemaine * TAUX_HORAIRE * 100) / 100;
+    const sessionsDepuis = sessions.filter((s) => s.debut >= depuis);
+    const heuresDepuis = calculerHeures(sessionsDepuis);
+    const montantBadgeuse = Math.round(heuresDepuis * TAUX_HORAIRE * 100) / 100;
 
     const montantCommissions = Math.round(commissions.total * 100) / 100;
     const totalAPayer = Math.round((montantCommissions + montantBadgeuse) * 100) / 100;
@@ -165,13 +170,22 @@ router.get('/paie', (req, res) => {
       couleur: emp.couleur,
       interventions_count: commissions.nb,
       montant_commissions: montantCommissions,
-      heures_badgeuse: heuresSemaine,
+      heures_badgeuse: heuresDepuis,
       montant_badgeuse: montantBadgeuse,
       total_a_payer: totalAPayer,
     };
   });
 
-  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE });
+  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE, depuis });
+});
+
+router.post('/paie/reset', (req, res) => {
+  if (!req.utilisateur.est_admin) {
+    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
+  }
+  const maintenant = new Date().toISOString();
+  db.prepare('UPDATE parametres_paie SET date_reset = ? WHERE id = 1').run(maintenant);
+  res.json({ ok: true, depuis: maintenant });
 });
 
 module.exports = router;
