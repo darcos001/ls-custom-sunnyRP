@@ -9,7 +9,9 @@ const TAUX_HORAIRE = 100; // $ par heure
 
 function debutSemaineISO() {
   const d = new Date();
-  d.setDate(d.getDate() - d.getDay() + 1); // Lundi
+  const jour = d.getDay();
+  const decalage = jour === 0 ? -6 : 1 - jour;
+  d.setDate(d.getDate() + decalage); // Lundi
   d.setHours(0, 0, 0, 0);
   return d.toISOString();
 }
