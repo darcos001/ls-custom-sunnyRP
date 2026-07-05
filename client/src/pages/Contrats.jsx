@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Trash2, FileText } from 'lucide-react';
+import { Plus, X, Trash2, FileText, Pencil } from 'lucide-react';
 import { appelApi, formaterArgent } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+
+const PRIX_DEFAUT = 750;
 
 export default function Contrats() {
   const { employe } = useAuth();
   const [contrats, setContrats] = useState([]);
   const [chargement, setChargement] = useState(true);
   const [modaleOuverte, setModaleOuverte] = useState(false);
+  const [contratEnEdition, setContratEnEdition] = useState(null);
 
   useEffect(() => { charger(); }, []);
 
@@ -41,7 +44,7 @@ export default function Contrats() {
         </div>
         {employe.est_admin && (
           <button
-            onClick={() => setModaleOuverte(true)}
+            onClick={() => { setContratEnEdition(null); setModaleOuverte(true); }}
             className="flex items-center gap-2 bg-accent-blue text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
           >
             <Plus size={16} />
@@ -62,12 +65,14 @@ export default function Contrats() {
         </div>
       ) : (
         <div className="bg-bg-panel rounded-xl p-5 overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
+          <table className="w-full text-sm min-w-[850px]">
             <thead>
               <tr className="text-gray-500 text-xs uppercase border-b border-white/5">
                 <th className="text-left pb-3 font-medium">Nom</th>
                 <th className="text-left pb-3 font-medium">Description</th>
                 <th className="text-left pb-3 font-medium">Plaques connues</th>
+                <th className="text-right pb-3 font-medium">Prix réparation</th>
+                <th className="text-right pb-3 font-medium">Prix kit</th>
                 <th className="text-right pb-3 font-medium">Total semaine</th>
                 <th className="text-right pb-3 font-medium">Total général</th>
                 {employe.est_admin && <th className="pb-3"></th>}
@@ -92,6 +97,20 @@ export default function Contrats() {
                       </div>
                     )}
                   </td>
+                  <td className="py-3 text-right">
+                    {c.prix_reparation != null ? (
+                      <span className="text-white font-semibold">{formaterArgent(c.prix_reparation)}</span>
+                    ) : (
+                      <span className="text-gray-500 text-xs">{PRIX_DEFAUT} $ (défaut)</span>
+                    )}
+                  </td>
+                  <td className="py-3 text-right">
+                    {c.prix_kit != null ? (
+                      <span className="text-white font-semibold">{formaterArgent(c.prix_kit)}</span>
+                    ) : (
+                      <span className="text-gray-500 text-xs">{PRIX_DEFAUT} $ (défaut)</span>
+                    )}
+                  </td>
                   <td className="py-3 text-right text-white font-semibold">{formaterArgent(c.total_semaine)}</td>
                   <td className="py-3 text-right">
                     <span className={c.total_impaye > 0 ? 'text-accent-amber font-semibold' : 'text-gray-400'}>
@@ -100,9 +119,18 @@ export default function Contrats() {
                   </td>
                   {employe.est_admin && (
                     <td className="py-3 text-right">
-                      <button onClick={() => supprimer(c)} className="text-gray-500 hover:text-red-400" title="Supprimer">
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => { setContratEnEdition(c); setModaleOuverte(true); }}
+                          className="text-gray-500 hover:text-accent-blue"
+                          title="Modifier"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => supprimer(c)} className="text-gray-500 hover:text-red-400" title="Supprimer">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -114,6 +142,7 @@ export default function Contrats() {
 
       {modaleOuverte && (
         <ModaleContrat
+          contrat={contratEnEdition}
           surFermer={() => setModaleOuverte(false)}
           surCree={() => { setModaleOuverte(false); charger(); }}
         />
@@ -122,9 +151,12 @@ export default function Contrats() {
   );
 }
 
-function ModaleContrat({ surFermer, surCree }) {
-  const [nom, setNom] = useState('');
-  const [description, setDescription] = useState('');
+function ModaleContrat({ contrat, surFermer, surCree }) {
+  const modeEdition = !!contrat;
+  const [nom, setNom] = useState(contrat?.nom || '');
+  const [description, setDescription] = useState(contrat?.description || '');
+  const [prixReparation, setPrixReparation] = useState(contrat?.prix_reparation ?? '');
+  const [prixKit, setPrixKit] = useState(contrat?.prix_kit ?? '');
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
@@ -133,10 +165,20 @@ function ModaleContrat({ surFermer, surCree }) {
     if (!nom.trim()) { setErreur('Le nom du contrat est obligatoire'); return; }
     setEnvoiEnCours(true);
     try {
-      await appelApi('/contrats', { method: 'POST', body: JSON.stringify({ nom, description }) });
+      const corps = {
+        nom,
+        description,
+        prix_reparation: prixReparation === '' ? null : Number(prixReparation),
+        prix_kit: prixKit === '' ? null : Number(prixKit),
+      };
+      if (modeEdition) {
+        await appelApi(`/contrats/${contrat.id}`, { method: 'PUT', body: JSON.stringify({ ...corps, actif: 1 }) });
+      } else {
+        await appelApi('/contrats', { method: 'POST', body: JSON.stringify(corps) });
+      }
       surCree();
-    } catch (e) {
-      setErreur(e.message);
+    } catch (e2) {
+      setErreur(e2.message);
     } finally {
       setEnvoiEnCours(false);
     }
@@ -146,7 +188,7 @@ function ModaleContrat({ surFermer, surCree }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
       <div className="bg-bg-panel rounded-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">Nouveau contrat</h2>
+          <h2 className="text-lg font-bold text-white">{modeEdition ? 'Modifier le contrat' : 'Nouveau contrat'}</h2>
           <button onClick={surFermer} className="text-gray-400 hover:text-white"><X size={20} /></button>
         </div>
         <form onSubmit={gererSoumission} className="flex flex-col gap-4">
@@ -162,10 +204,27 @@ function ModaleContrat({ surFermer, surCree }) {
               className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10 resize-none"
               placeholder="Ex: 5 réparations max par semaine..." />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-gray-400 block mb-1.5">Prix réparation ($)</label>
+              <input type="number" min="0" value={prixReparation} onChange={(e) => setPrixReparation(e.target.value)}
+                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+                placeholder={`${PRIX_DEFAUT} (défaut)`} />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 block mb-1.5">Prix kit ($)</label>
+              <input type="number" min="0" value={prixKit} onChange={(e) => setPrixKit(e.target.value)}
+                className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+                placeholder={`${PRIX_DEFAUT} (défaut)`} />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 -mt-2">
+            Laisse vide pour garder le prix par défaut ({PRIX_DEFAUT} $).
+          </p>
           {erreur && <p className="text-red-400 text-sm">{erreur}</p>}
           <button type="submit" disabled={envoiEnCours}
             className="bg-accent-blue text-white font-semibold py-2.5 rounded-lg text-sm mt-1 disabled:opacity-60">
-            {envoiEnCours ? 'Création...' : 'Créer le contrat'}
+            {envoiEnCours ? 'Enregistrement...' : modeEdition ? 'Enregistrer les modifications' : 'Créer le contrat'}
           </button>
         </form>
       </div>
