@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS interventions (
   cout_materiel REAL NOT NULL DEFAULT 0,
   commission_montant REAL NOT NULL DEFAULT 0,
   benefice REAL NOT NULL DEFAULT 0,
+  quantite INTEGER NOT NULL DEFAULT 1,
   notes TEXT,
   date_creation TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (employe_id) REFERENCES employes(id),
@@ -100,6 +101,11 @@ if (!colonnesContrats.some((c) => c.name === 'prix_reparation')) {
 }
 if (!colonnesContrats.some((c) => c.name === 'prix_kit')) {
   db.exec('ALTER TABLE contrats ADD COLUMN prix_kit REAL');
+}
+
+const colonnesInterventions = db.prepare("PRAGMA table_info(interventions)").all();
+if (!colonnesInterventions.some((c) => c.name === 'quantite')) {
+  db.exec('ALTER TABLE interventions ADD COLUMN quantite INTEGER NOT NULL DEFAULT 1');
 }
 
 db.prepare('INSERT OR IGNORE INTO parametres_paie (id, date_reset) VALUES (1, NULL)').run();
