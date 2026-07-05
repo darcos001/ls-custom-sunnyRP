@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Paintbrush, Wrench, DollarSign, TrendingUp, Search, Filter, RotateCcw, Trash2 } from 'lucide-react';
+import { Paintbrush, Wrench, DollarSign, TrendingUp, Search, Filter, RotateCcw, Trash2, Package } from 'lucide-react';
 import CarteStat from '../components/CarteStat.jsx';
 import ModaleIntervention from '../components/ModaleIntervention.jsx';
+import ModaleKitReparation from '../components/ModaleKitReparation.jsx';
 import { appelApi, formaterArgent, formaterDate } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -98,6 +99,13 @@ export default function RepasCustom() {
           >
             <Wrench size={16} />
             Nouvelle Réparation
+          </button>
+          <button
+            onClick={() => setModaleOuverte('kit')}
+            className="flex items-center gap-2 bg-bg-card text-white text-sm font-semibold px-4 py-2.5 rounded-lg border border-white/10"
+          >
+            <Package size={16} />
+            Kit de réparation
           </button>
         </div>
       </div>
@@ -267,9 +275,16 @@ export default function RepasCustom() {
         )}
       </div>
 
-      {modaleOuverte && (
+      {modaleOuverte && modaleOuverte !== 'kit' && (
         <ModaleIntervention
           type={modaleOuverte}
+          surFermer={() => setModaleOuverte(null)}
+          surCree={gererInterventionCreee}
+        />
+      )}
+
+      {modaleOuverte === 'kit' && (
+        <ModaleKitReparation
           surFermer={() => setModaleOuverte(null)}
           surCree={gererInterventionCreee}
         />
