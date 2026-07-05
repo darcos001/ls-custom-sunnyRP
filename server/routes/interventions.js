@@ -40,6 +40,7 @@ router.post('/', (req, res) => {
     return res.status(400).json({ erreur: 'Le prix est obligatoire pour un custom' });
   }
   const nomFinal = type === 'reparation' ? (nom_prestation || 'Réparation') : (nom_prestation || 'Custom');
+  const quantiteFinale = quantite !== undefined && quantite !== null && quantite !== '' ? (Number(quantite) > 0 ? Number(quantite) : 1) : 1;
   try {
     let commissionMontant, benefice;
     if (type === 'custom') {
@@ -54,10 +55,10 @@ router.post('/', (req, res) => {
       .prepare(
         `INSERT INTO interventions
           (type, catalogue_id, contrat_id, nom_prestation, plaque, marque_vehicule, nom_client,
-           employe_id, prix, cout_materiel, commission_montant, benefice, notes)
-         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+           employe_id, prix, cout_materiel, commission_montant, benefice, quantite, notes)
+         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
       )
-      .run(type, contrat_id || null, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), commissionMontant, benefice, notes || null);
+      .run(type, contrat_id || null, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), commissionMontant, benefice, quantiteFinale, notes || null);
     if (marque_vehicule && marque_vehicule.trim() && marque_vehicule !== 'Kit de réparation') {
       db.prepare('INSERT OR IGNORE INTO marques_vehicules (nom) VALUES (?)').run(marque_vehicule.trim());
     }
@@ -108,6 +109,9 @@ router.get('/stats/semaine', (req, res) => {
   const customs = db
     .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total_brut, COALESCE(SUM(benefice),0) AS benef FROM interventions WHERE type='custom' AND date_creation >= ?`)
     .get(debutISO);
+  const kits = db
+    .prepare(`SELECT COALESCE(SUM(quantite),0) AS total_kits FROM interventions WHERE plaque = 'KIT-REPARATION' AND date_creation >= ?`)
+    .get(debutISO);
   const customs_ca_entreprise = Math.round(customs.total_brut * 0.5 * 100) / 100;
   const ca_total = Math.round((reparations.total + customs_ca_entreprise) * 100) / 100;
   res.json({
@@ -116,6 +120,7 @@ router.get('/stats/semaine', (req, res) => {
     customs_count: customs.c,
     customs_total: customs_ca_entreprise,
     customs_benefice: customs.benef,
+    kits_count: kits.total_kits,
     ca_total: ca_total,
   });
 });
