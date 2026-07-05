@@ -19,13 +19,14 @@ function calculerMontants(employeId, prix, coutMateriel) {
 const PRIX_REPARATION_FIXE = 750;
 
 router.post('/', (req, res) => {
-  const { type, nom_prestation, plaque, marque_vehicule, nom_client, employe_id, notes, contrat_id } = req.body;
+  const { type, nom_prestation, plaque, marque_vehicule, nom_client, employe_id, notes, contrat_id, quantite } = req.body;
   let { prix } = req.body;
   if (!type || !plaque || !marque_vehicule || !nom_client || !employe_id) {
     return res.status(400).json({ erreur: 'Tous les champs obligatoires doivent être remplis' });
   }
   if (type === 'reparation') {
-    prix = PRIX_REPARATION_FIXE;
+    const qte = Number(quantite) > 0 ? Number(quantite) : 1;
+    prix = PRIX_REPARATION_FIXE * qte;
   } else if (prix === undefined || prix === null || prix === '') {
     return res.status(400).json({ erreur: 'Le prix est obligatoire pour un custom' });
   }
