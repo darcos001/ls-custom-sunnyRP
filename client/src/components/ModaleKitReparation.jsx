@@ -20,7 +20,10 @@ export default function ModaleKitReparation({ surFermer, surCree }) {
     appelApi('/contrats').then(setContrats).catch(() => {});
   }, []);
 
-  const total = (Number(quantite) || 0) * PRIX_KIT;
+  const contratSelectionne = contrats.find((c) => String(c.id) === String(contratId));
+  const prixUnitaireApplique =
+    contratSelectionne && contratSelectionne.prix_kit != null ? contratSelectionne.prix_kit : PRIX_KIT;
+  const total = (Number(quantite) || 0) * prixUnitaireApplique;
 
   async function gererSoumission(e) {
     e.preventDefault();
@@ -63,7 +66,10 @@ export default function ModaleKitReparation({ surFermer, surCree }) {
 
         <form onSubmit={gererSoumission} className="flex flex-col gap-4">
           <div className="bg-bg-card rounded-lg px-4 py-3 text-sm text-gray-300">
-            Prix fixe : <span className="text-white font-semibold">{PRIX_KIT} $</span> / kit
+            Prix : <span className="text-white font-semibold">{prixUnitaireApplique} $</span> / kit
+            {contratSelectionne && contratSelectionne.prix_kit != null && (
+              <span className="text-xs text-accent-blue ml-2">(tarif contrat {contratSelectionne.nom})</span>
+            )}
           </div>
 
           <Champ label="Nombre de kits vendus *">
