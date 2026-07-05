@@ -18,6 +18,7 @@ app.use('/api/catalogue', require('./routes/catalogue'));
 app.use('/api/interventions', require('./routes/interventions'));
 app.use('/api/badgeuse', require('./routes/badgeuse'));
 app.use('/api/contrats', require('./routes/contrats'));
+app.use('/api/marques', require('./routes/marques'));
 
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));
