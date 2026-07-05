@@ -102,7 +102,7 @@ router.get('/stats/semaine', (req, res) => {
   const decalage = jour === 0 ? -6 : 1 - jour;
   debutSemaine.setDate(debutSemaine.getDate() + decalage);
   debutSemaine.setHours(0, 0, 0, 0);
-  const debutISO = debutSemaine.toISOString();
+  const debutISO = debutSemaine.toISOString().slice(0, 19).replace('T', ' ');
   const reparations = db
     .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(prix),0) AS total FROM interventions WHERE type='reparation' AND date_creation >= ?`)
     .get(debutISO);
