@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Wrench, Car, Briefcase, DollarSign, TrendingUp, History, Paintbrush } from 'lucide-react';
+import { Wrench, Car, Package, DollarSign, TrendingUp, History, Paintbrush } from 'lucide-react';
 import CarteStat from '../components/CarteStat.jsx';
 import { appelApi, formaterArgent, formaterDate } from '../api.js';
 
@@ -40,7 +40,7 @@ export default function TableauDeBord() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <CarteStat icone={Wrench} couleur="#3b82f6" titre="Réparations (Semaine)" valeur={stats.reparations_count} />
         <CarteStat icone={Car} couleur="#22c55e" titre="Customs (Semaine)" valeur={stats.customs_count} />
-        <CarteStat icone={Briefcase} couleur="#3b82f6" titre="Chiffons (Semaine)" valeur={0} />
+        <CarteStat icone={Package} couleur="#f59e0b" titre="Kits de réparation (Semaine)" valeur={stats.kits_count} />
         <CarteStat icone={DollarSign} couleur="#f59e0b" titre="CA Semaine" valeur={formaterArgent(stats.ca_total)} />
       </div>
 
