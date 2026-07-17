@@ -110,16 +110,18 @@ if (!colonnesInterventions.some((c) => c.name === 'quantite')) {
 
 db.prepare('INSERT OR IGNORE INTO parametres_paie (id, date_reset) VALUES (1, NULL)').run();
 
-const nbGrades = db.prepare('SELECT COUNT(*) AS c FROM grades').get().c;
-if (nbGrades === 0) {
-  const insertGrade = db.prepare('INSERT INTO grades (nom, commission_pourcentage, couleur) VALUES (?, ?, ?)');
-  insertGrade.run('Mécano Apprenti', 35, '#22c55e');
-  insertGrade.run('Mécano', 40, '#1e293b');
-  insertGrade.run('Mécano Confirmé', 45, '#3b82f6');
-  insertGrade.run('Chef Mécano', 55, '#a855f7');
-  insertGrade.run('assistant patron', 65, '#ff4d6d');
-  insertGrade.run('Patron', 100, '#f59e0b');
-}
+// Grades par défaut : INSERT OR IGNORE (nom = UNIQUE) pour que les grades
+// manquants soient ajoutés à chaque démarrage, sans dupliquer ni toucher
+// aux grades déjà existants en base (donc aucune perte de données au redéploiement).
+const insertGradeSiAbsent = db.prepare(
+  'INSERT OR IGNORE INTO grades (nom, commission_pourcentage, couleur) VALUES (?, ?, ?)'
+);
+insertGradeSiAbsent.run('Mécano Apprenti', 35, '#22c55e');
+insertGradeSiAbsent.run('Mécano', 40, '#1e293b');
+insertGradeSiAbsent.run('Mécano Confirmé', 45, '#3b82f6');
+insertGradeSiAbsent.run('Chef Mécano', 55, '#a855f7');
+insertGradeSiAbsent.run('assistant patron', 65, '#ff4d6d');
+insertGradeSiAbsent.run('Patron', 100, '#f59e0b');
 
 const nbEmployes = db.prepare('SELECT COUNT(*) AS c FROM employes').get().c;
 if (nbEmployes === 0) {
