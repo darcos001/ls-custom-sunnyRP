@@ -113,9 +113,11 @@ db.prepare('INSERT OR IGNORE INTO parametres_paie (id, date_reset) VALUES (1, NU
 const nbGrades = db.prepare('SELECT COUNT(*) AS c FROM grades').get().c;
 if (nbGrades === 0) {
   const insertGrade = db.prepare('INSERT INTO grades (nom, commission_pourcentage, couleur) VALUES (?, ?, ?)');
-  insertGrade.run('Mécano Apprenti', 40, '#22c55e');
-  insertGrade.run('Mécano Confirmé', 55, '#3b82f6');
-  insertGrade.run('Chef Mécano', 65, '#a855f7');
+  insertGrade.run('Mécano Apprenti', 35, '#22c55e');
+  insertGrade.run('Mécano', 40, '#1e293b');
+  insertGrade.run('Mécano Confirmé', 45, '#3b82f6');
+  insertGrade.run('Chef Mécano', 55, '#a855f7');
+  insertGrade.run('assistant patron', 65, '#ff4d6d');
   insertGrade.run('Patron', 100, '#f59e0b');
 }
 
