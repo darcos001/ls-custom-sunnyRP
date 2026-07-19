@@ -112,7 +112,9 @@ if (!colonnesInterventions.some((c) => c.name === 'quantite')) {
 
 const colonnesSessions = db.prepare("PRAGMA table_info(sessions_service)").all();
 if (!colonnesSessions.some((c) => c.name === 'derniere_activite')) {
-  db.exec("ALTER TABLE sessions_service ADD COLUMN derniere_activite TEXT DEFAULT (datetime('now'))");
+  // SQLite interdit un DEFAULT non-constant (comme datetime('now')) sur ALTER TABLE ADD COLUMN,
+  // donc on ajoute la colonne sans DEFAULT puis on la remplit juste après.
+  db.exec('ALTER TABLE sessions_service ADD COLUMN derniere_activite TEXT');
   db.exec('UPDATE sessions_service SET derniere_activite = debut WHERE derniere_activite IS NULL');
 }
 if (!colonnesSessions.some((c) => c.name === 'fin_automatique')) {
