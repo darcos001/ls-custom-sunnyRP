@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { File, CheckCircle2, Pencil, X, Users } from 'lucide-react';
+import { CheckCircle2, Pencil, X, Users } from 'lucide-react';
 import { appelApi } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import ContratFormatte from '../components/ContratFormatte.jsx';
 
 export default function Documents() {
   const { employe } = useAuth();
@@ -54,7 +55,7 @@ export default function Documents() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 no-print">
         <div className="text-gray-400 text-lg">
           Gestion / <span className="text-white font-semibold">Mes documents</span>
         </div>
@@ -70,17 +71,11 @@ export default function Documents() {
       </div>
 
       <div className="bg-bg-panel rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <File size={18} className="text-accent-blue" />
-          <h3 className="text-white font-semibold">Contrat de travail</h3>
-        </div>
-        <div className="bg-bg-card rounded-lg p-5 text-sm text-gray-300 whitespace-pre-wrap leading-relaxed max-h-[420px] overflow-y-auto">
-          {contrat.contenu}
-        </div>
+        <ContratFormatte contenu={contrat.contenu} />
 
-        {erreur && <p className="text-red-400 text-sm mt-3">{erreur}</p>}
+        {erreur && <p className="text-red-400 text-sm mt-3 no-print">{erreur}</p>}
 
-        <div className="mt-5">
+        <div className="mt-5 no-print">
           {contrat.ma_signature ? (
             <div className="flex items-center gap-2 bg-accent-green/10 text-accent-green text-sm font-semibold px-4 py-3 rounded-lg">
               <CheckCircle2 size={18} />
@@ -99,7 +94,7 @@ export default function Documents() {
       </div>
 
       {employe.est_admin && signatures && (
-        <div className="bg-bg-panel rounded-xl p-5">
+        <div className="bg-bg-panel rounded-xl p-5 no-print">
           <div className="flex items-center gap-2 mb-4">
             <Users size={18} className="text-accent-blue" />
             <h3 className="text-white font-semibold">Suivi des signatures (version {signatures.version})</h3>
@@ -179,7 +174,7 @@ function ModaleEditionContrat({ contenuActuel, surFermer, surEnregistre }) {
           </button>
         </div>
         <p className="text-xs text-accent-amber bg-accent-amber/10 rounded-lg px-3 py-2 mb-4">
-          ⚠️ Modifier le contrat annule toutes les signatures existantes : chaque employé devra resigner la nouvelle version.
+          ⚠️ Modifier le contrat annule toutes les signatures existantes : chaque employé devra resigner la nouvelle version. Astuce : structure ton texte avec des lignes "Article 1 — Titre" suivies du paragraphe pour garder la mise en forme automatique.
         </p>
         <textarea
           value={contenu}
