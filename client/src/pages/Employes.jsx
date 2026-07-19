@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, ShieldCheck, Trash2, Pencil } from 'lucide-react';
+import { Plus, X, ShieldCheck, Trash2, Pencil, Tag, Check } from 'lucide-react';
 import { appelApi } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -141,6 +141,10 @@ export default function Employes() {
         </table>
       </div>
 
+      {employe.est_admin && (
+        <PanneauGrades grades={grades} onChange={charger} />
+      )}
+
       {modaleOuverte && (
         <ModaleEmploye
           grades={grades}
@@ -152,6 +156,183 @@ export default function Employes() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function PanneauGrades({ grades, onChange }) {
+  const [ligneEnEdition, setLigneEnEdition] = useState(null); // id du grade en cours d'édition, ou 'nouveau'
+  const [nom, setNom] = useState('');
+  const [pourcentage, setPourcentage] = useState('');
+  const [couleur, setCouleur] = useState('#3b82f6');
+  const [erreur, setErreur] = useState('');
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+
+  function ouvrirEditionGrade(g) {
+    setLigneEnEdition(g.id);
+    setNom(g.nom);
+    setPourcentage(String(g.commission_pourcentage));
+    setCouleur(g.couleur || '#3b82f6');
+    setErreur('');
+  }
+
+  function ouvrirNouveauGrade() {
+    setLigneEnEdition('nouveau');
+    setNom('');
+    setPourcentage('');
+    setCouleur('#3b82f6');
+    setErreur('');
+  }
+
+  function annuler() {
+    setLigneEnEdition(null);
+    setErreur('');
+  }
+
+  async function enregistrer() {
+    if (!nom.trim() || pourcentage === '') {
+      setErreur('Nom et pourcentage requis');
+      return;
+    }
+    setEnvoiEnCours(true);
+    setErreur('');
+    try {
+      if (ligneEnEdition === 'nouveau') {
+        await appelApi('/grades', {
+          method: 'POST',
+          body: JSON.stringify({ nom: nom.trim(), commission_pourcentage: Number(pourcentage), couleur }),
+        });
+      } else {
+        await appelApi(`/grades/${ligneEnEdition}`, {
+          method: 'PUT',
+          body: JSON.stringify({ nom: nom.trim(), commission_pourcentage: Number(pourcentage), couleur }),
+        });
+      }
+      setLigneEnEdition(null);
+      onChange();
+    } catch (e) {
+      setErreur(e.message);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  }
+
+  async function supprimer(g) {
+    if (!confirm(`Supprimer le grade "${g.nom}" ?`)) return;
+    try {
+      await appelApi(`/grades/${g.id}`, { method: 'DELETE' });
+      onChange();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  return (
+    <div className="bg-bg-panel rounded-xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 text-white font-semibold">
+          <Tag size={18} className="text-accent-blue" />
+          Grades &amp; commissions
+        </div>
+        {ligneEnEdition === null && (
+          <button
+            onClick={ouvrirNouveauGrade}
+            className="flex items-center gap-2 bg-bg-card text-white text-xs font-semibold px-3 py-2 rounded-lg border border-white/10"
+          >
+            <Plus size={14} />
+            Nouveau grade
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {grades.map((g) => (
+          <div key={g.id} className="bg-bg-card rounded-lg px-4 py-3">
+            {ligneEnEdition === g.id ? (
+              <LigneEditionGrade
+                nom={nom} setNom={setNom}
+                pourcentage={pourcentage} setPourcentage={setPourcentage}
+                couleur={couleur} setCouleur={setCouleur}
+                erreur={erreur} envoiEnCours={envoiEnCours}
+                onAnnuler={annuler} onEnregistrer={enregistrer}
+              />
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: g.couleur }} />
+                  <span className="text-white font-medium text-sm">{g.nom}</span>
+                  <span className="text-gray-400 text-sm">{g.commission_pourcentage}%</span>
+                </div>
+                {ligneEnEdition === null && (
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => ouvrirEditionGrade(g)} className="text-gray-500 hover:text-accent-blue" title="Modifier">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => supprimer(g)} className="text-gray-500 hover:text-red-400" title="Supprimer">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {ligneEnEdition === 'nouveau' && (
+          <div className="bg-bg-card rounded-lg px-4 py-3">
+            <LigneEditionGrade
+              nom={nom} setNom={setNom}
+              pourcentage={pourcentage} setPourcentage={setPourcentage}
+              couleur={couleur} setCouleur={setCouleur}
+              erreur={erreur} envoiEnCours={envoiEnCours}
+              onAnnuler={annuler} onEnregistrer={enregistrer}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LigneEditionGrade({ nom, setNom, pourcentage, setPourcentage, couleur, setCouleur, erreur, envoiEnCours, onAnnuler, onEnregistrer }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="color"
+          value={couleur}
+          onChange={(e) => setCouleur(e.target.value)}
+          className="w-9 h-9 rounded cursor-pointer bg-transparent border border-white/10"
+        />
+        <input
+          value={nom}
+          onChange={(e) => setNom(e.target.value)}
+          placeholder="Nom du grade"
+          className="flex-1 min-w-[140px] bg-bg-input rounded-lg px-3 py-2 text-sm text-white border border-white/10"
+        />
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            value={pourcentage}
+            onChange={(e) => setPourcentage(e.target.value)}
+            placeholder="%"
+            className="w-20 bg-bg-input rounded-lg px-3 py-2 text-sm text-white border border-white/10"
+          />
+          <span className="text-gray-400 text-sm">%</span>
+        </div>
+        <button
+          onClick={onEnregistrer}
+          disabled={envoiEnCours}
+          className="flex items-center gap-1 bg-accent-green text-white text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-60"
+        >
+          <Check size={14} />
+          Enregistrer
+        </button>
+        <button onClick={onAnnuler} className="text-gray-400 hover:text-white text-xs font-semibold px-2">
+          Annuler
+        </button>
+      </div>
+      {erreur && <p className="text-red-400 text-xs">{erreur}</p>}
     </div>
   );
 }
