@@ -37,8 +37,8 @@ export default function Documents() {
     setSignatureEnCours(true);
     setErreur('');
     try {
-      const r = await appelApi('/contrat-travail/signer', { method: 'POST' });
-      setContrat((c) => ({ ...c, ma_signature: { date_signature: r.date_signature } }));
+      await appelApi('/contrat-travail/signer', { method: 'POST' });
+      await charger();
     } catch (e) {
       setErreur(e.message);
     } finally {
