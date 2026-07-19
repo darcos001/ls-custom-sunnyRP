@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS sessions_service (
   employe_id INTEGER NOT NULL,
   debut TEXT NOT NULL DEFAULT (datetime('now')),
   fin TEXT,
+  derniere_activite TEXT DEFAULT (datetime('now')),
+  fin_automatique INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (employe_id) REFERENCES employes(id)
 );
 `);
@@ -108,20 +110,47 @@ if (!colonnesInterventions.some((c) => c.name === 'quantite')) {
   db.exec('ALTER TABLE interventions ADD COLUMN quantite INTEGER NOT NULL DEFAULT 1');
 }
 
+const colonnesSessions = db.prepare("PRAGMA table_info(sessions_service)").all();
+if (!colonnesSessions.some((c) => c.name === 'derniere_activite')) {
+  db.exec("ALTER TABLE sessions_service ADD COLUMN derniere_activite TEXT DEFAULT (datetime('now'))");
+  db.exec('UPDATE sessions_service SET derniere_activite = debut WHERE derniere_activite IS NULL');
+}
+if (!colonnesSessions.some((c) => c.name === 'fin_automatique')) {
+  db.exec('ALTER TABLE sessions_service ADD COLUMN fin_automatique INTEGER NOT NULL DEFAULT 0');
+}
+
 db.prepare('INSERT OR IGNORE INTO parametres_paie (id, date_reset) VALUES (1, NULL)').run();
 
-// Grades par défaut : INSERT OR IGNORE (nom = UNIQUE) pour que les grades
-// manquants soient ajoutés à chaque démarrage, sans dupliquer ni toucher
-// aux grades déjà existants en base (donc aucune perte de données au redéploiement).
-const insertGradeSiAbsent = db.prepare(
-  'INSERT OR IGNORE INTO grades (nom, commission_pourcentage, couleur) VALUES (?, ?, ?)'
-);
-insertGradeSiAbsent.run('Mécano Apprenti', 35, '#22c55e');
-insertGradeSiAbsent.run('Mécano', 40, '#1e293b');
-insertGradeSiAbsent.run('Mécano Confirmé', 45, '#3b82f6');
-insertGradeSiAbsent.run('Chef Mécano', 55, '#a855f7');
-insertGradeSiAbsent.run('assistant patron', 65, '#ff4d6d');
-insertGradeSiAbsent.run('Patron', 100, '#f59e0b');
+const nbGrades = db.prepare('SELECT COUNT(*) AS c FROM grades').get().c;
+if (nbGrades === 0) {
+  const insertGrade = db.prepare('INSERT INTO grades (nom, commission_pourcentage, couleur) VALUES (?, ?, ?)');
+  insertGrade.run('Apprenti', 35, '#22c55e');
+  insertGrade.run('Mecano', 40, '#0ea5e9');
+  insertGrade.run('Mecano confirmé', 45, '#3b82f6');
+  insertGrade.run("Chef d'équipe", 55, '#a855f7');
+  insertGrade.run('Assistant Patron', 65, '#ec4899');
+  insertGrade.run('Patron', 100, '#f59e0b');
+}
+
+// --- Migration : met à jour les grades existants vers la nouvelle grille de commissions ---
+const renommagesGrades = [
+  { ancien: 'Mécano Apprenti', nouveau: 'Apprenti', pourcentage: 35 },
+  { ancien: 'Mécano Confirmé', nouveau: 'Mecano confirmé', pourcentage: 45 },
+  { ancien: 'Chef Mécano', nouveau: "Chef d'équipe", pourcentage: 55 },
+];
+for (const r of renommagesGrades) {
+  db.prepare('UPDATE grades SET nom = ?, commission_pourcentage = ? WHERE nom = ?').run(r.nouveau, r.pourcentage, r.ancien);
+}
+const nouveauxGradesAAjouter = [
+  { nom: 'Mecano', pourcentage: 40, couleur: '#0ea5e9' },
+  { nom: 'Assistant Patron', pourcentage: 65, couleur: '#ec4899' },
+];
+for (const g of nouveauxGradesAAjouter) {
+  const existe = db.prepare('SELECT id FROM grades WHERE nom = ?').get(g.nom);
+  if (!existe) {
+    db.prepare('INSERT INTO grades (nom, commission_pourcentage, couleur) VALUES (?, ?, ?)').run(g.nom, g.pourcentage, g.couleur);
+  }
+}
 
 const nbEmployes = db.prepare('SELECT COUNT(*) AS c FROM employes').get().c;
 if (nbEmployes === 0) {
