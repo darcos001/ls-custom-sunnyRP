@@ -13,11 +13,15 @@ export async function appelApi(chemin, options = {}) {
 
   if (reponse.status === 401) {
     // Token invalide, expiré, ou sessions réinitialisées (ex: changement de JWT_SECRET).
-    // On nettoie proprement plutôt que de laisser l'app dans un état cassé.
+    // On nettoie le token puis on recharge la page ACTUELLE (pas une nouvelle URL) :
+    // ça évite de dépendre de la config du serveur statique pour une route directe,
+    // et l'app elle-même (React Router) redirigera vers /connexion une fois le token absent.
+    const dejaEnCours = sessionStorage.getItem('ls_redirection_en_cours');
     localStorage.removeItem('ls_token');
     localStorage.removeItem('ls_employe');
-    if (!window.location.pathname.startsWith('/connexion')) {
-      window.location.href = '/connexion';
+    if (!dejaEnCours) {
+      sessionStorage.setItem('ls_redirection_en_cours', '1');
+      window.location.reload();
     }
     throw new Error('Session expirée, reconnecte-toi');
   }
