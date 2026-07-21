@@ -100,6 +100,25 @@ CREATE TABLE IF NOT EXISTS signatures_contrat (
   FOREIGN KEY (employe_id) REFERENCES employes(id)
 );
 
+CREATE TABLE IF NOT EXISTS historique_paie (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date_paiement TEXT DEFAULT (datetime('now')),
+  depuis TEXT,
+  jusqu_a TEXT,
+  montant_total REAL NOT NULL DEFAULT 0,
+  detail_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS depenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  description TEXT NOT NULL,
+  montant REAL NOT NULL,
+  categorie TEXT,
+  employe_id INTEGER,
+  date_creation TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (employe_id) REFERENCES employes(id)
+);
+
 CREATE TABLE IF NOT EXISTS sessions_service (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   employe_id INTEGER NOT NULL,
