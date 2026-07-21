@@ -11,6 +11,7 @@ export default function ModaleKitReparation({ surFermer, surCree }) {
   const [contrats, setContrats] = useState([]);
   const [contratId, setContratId] = useState('');
   const [quantite, setQuantite] = useState(1);
+  const [coutMateriel, setCoutMateriel] = useState('');
   const [nomClient, setNomClient] = useState('');
   const [notes, setNotes] = useState('');
   const [erreur, setErreur] = useState('');
@@ -44,6 +45,7 @@ export default function ModaleKitReparation({ surFermer, surCree }) {
           nom_client: nomClient || 'Client comptant',
           employe_id: employe.id,
           quantite: Number(quantite),
+          cout_materiel: coutMateriel ? Number(coutMateriel) : 0,
           notes,
           contrat_id: contratId ? Number(contratId) : null,
         }),
@@ -100,6 +102,17 @@ export default function ModaleKitReparation({ surFermer, surCree }) {
               onChange={(e) => setNomClient(e.target.value)}
               className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
               placeholder="Ex: John Doe"
+            />
+          </Champ>
+
+          <Champ label="Coût matériel total ($) — optionnel">
+            <input
+              type="number"
+              min="0"
+              value={coutMateriel}
+              onChange={(e) => setCoutMateriel(e.target.value)}
+              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+              placeholder="0"
             />
           </Champ>
 

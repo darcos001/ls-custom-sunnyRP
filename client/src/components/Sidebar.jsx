@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  Home, UserCircle, Wrench, ShoppingBag, Contact, Car, FileText, Clock, File, Wallet,
+  Home, UserCircle, Wrench, ShoppingBag, Contact, Car, FileText, Clock, File, Wallet, Receipt,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -16,6 +16,7 @@ const liens = [
 ];
 
 const lienAdmin = { to: '/paie', label: 'Paie', icon: Wallet };
+const lienDepenses = { to: '/depenses', label: 'Dépenses', icon: Receipt };
 
 export default function Sidebar() {
   const { employe } = useAuth();
@@ -63,6 +64,22 @@ export default function Sidebar() {
           >
             <lienAdmin.icon size={18} />
             {lienAdmin.label}
+          </NavLink>
+        )}
+
+        {employe?.est_admin && (
+          <NavLink
+            to={lienDepenses.to}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-accent-blue text-white'
+                  : 'text-gray-300 hover:bg-white/5 hover:text-white'
+              }`
+            }
+          >
+            <lienDepenses.icon size={18} />
+            {lienDepenses.label}
           </NavLink>
         )}
       </nav>

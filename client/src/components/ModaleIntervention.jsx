@@ -19,6 +19,7 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
   const [marqueVehicule, setMarqueVehicule] = useState('');
   const [nomClient, setNomClient] = useState('');
   const [prix, setPrix] = useState('');
+  const [coutMateriel, setCoutMateriel] = useState('');
   const [notes, setNotes] = useState('');
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
@@ -83,6 +84,7 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
           plaque, marque_vehicule: marqueVehicule, nom_client: nomClient,
           employe_id: employe.id,
           prix: estCustom ? Number(prix) : PRIX_REPARATION_FIXE,
+          cout_materiel: coutMateriel ? Number(coutMateriel) : 0,
           notes,
           contrat_id: contratId ? Number(contratId) : null,
         }),
@@ -187,6 +189,12 @@ export default function ModaleIntervention({ type, surFermer, surCree }) {
               </Champ>
             </>
           )}
+
+          <Champ label="Coût matériel ($) — optionnel">
+            <input type="number" min="0" value={coutMateriel} onChange={(e) => setCoutMateriel(e.target.value)}
+              className="w-full bg-bg-input rounded-lg px-3 py-2.5 text-sm text-white border border-white/10"
+              placeholder="0" />
+          </Champ>
 
           <Champ label="Notes (optionnel)">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
