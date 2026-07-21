@@ -141,11 +141,7 @@ router.get('/equipe', (req, res) => {
   res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE });
 });
 
-router.get('/paie', (req, res) => {
-  if (!req.utilisateur.est_admin) {
-    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
-  }
-
+function calculerPaieActuelle() {
   const depuis = dateDepuisPourPaie();
 
   const employes = db
@@ -189,16 +185,47 @@ router.get('/paie', (req, res) => {
     };
   });
 
-  res.json({ employes: resultat, taux_horaire: TAUX_HORAIRE, depuis });
+  return { employes: resultat, depuis };
+}
+
+router.get('/paie', (req, res) => {
+  if (!req.utilisateur.est_admin) {
+    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
+  }
+  const { employes, depuis } = calculerPaieActuelle();
+  res.json({ employes, taux_horaire: TAUX_HORAIRE, depuis });
+});
+
+router.get('/paie/historique', (req, res) => {
+  if (!req.utilisateur.est_admin) {
+    return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
+  }
+  const lignes = db.prepare('SELECT * FROM historique_paie ORDER BY date_paiement DESC').all();
+  const resultat = lignes.map((l) => ({
+    id: l.id,
+    date_paiement: l.date_paiement,
+    depuis: l.depuis,
+    jusqu_a: l.jusqu_a,
+    montant_total: l.montant_total,
+    employes: JSON.parse(l.detail_json),
+  }));
+  res.json(resultat);
 });
 
 router.post('/paie/reset', (req, res) => {
   if (!req.utilisateur.est_admin) {
     return res.status(403).json({ erreur: 'Accès réservé aux administrateurs' });
   }
-  const maintenant = versDateSQLite(new Date());
-  db.prepare('UPDATE parametres_paie SET date_reset = ? WHERE id = 1').run(maintenant);
-  res.json({ ok: true, depuis: maintenant });
+  const { employes, depuis } = calculerPaieActuelle();
+  const jusquA = versDateSQLite(new Date());
+  const montantTotal = Math.round(employes.reduce((s, e) => s + e.total_a_payer, 0) * 100) / 100;
+
+  db.prepare(
+    'INSERT INTO historique_paie (depuis, jusqu_a, montant_total, detail_json) VALUES (?, ?, ?, ?)'
+  ).run(depuis, jusquA, montantTotal, JSON.stringify(employes));
+
+  db.prepare('UPDATE parametres_paie SET date_reset = ? WHERE id = 1').run(jusquA);
+  res.json({ ok: true, depuis: jusquA });
 });
 
 module.exports = router;

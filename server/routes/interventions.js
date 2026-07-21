@@ -21,6 +21,7 @@ const PRIX_REPARATION_FIXE = 750;
 router.post('/', (req, res) => {
   const { type, nom_prestation, plaque, marque_vehicule, nom_client, employe_id, notes, contrat_id, quantite } = req.body;
   let { prix } = req.body;
+  const coutMateriel = Number(req.body.cout_materiel) || 0;
   if (!type || !plaque || !marque_vehicule || !nom_client || !employe_id) {
     return res.status(400).json({ erreur: 'Tous les champs obligatoires doivent être remplis' });
   }
@@ -44,10 +45,11 @@ router.post('/', (req, res) => {
   try {
     let commissionMontant, benefice;
     if (type === 'custom') {
-      commissionMontant = Math.round(Number(prix) * 0.5 * 100) / 100;
-      benefice = Math.round((Number(prix) - commissionMontant) * 100) / 100;
+      const marge = Math.max(0, Number(prix) - coutMateriel);
+      commissionMontant = Math.round(marge * 0.5 * 100) / 100;
+      benefice = Math.round((marge - commissionMontant) * 100) / 100;
     } else {
-      const r = calculerMontants(employe_id, Number(prix), 0);
+      const r = calculerMontants(employe_id, Number(prix), coutMateriel);
       commissionMontant = r.commissionMontant;
       benefice = r.benefice;
     }
@@ -56,9 +58,9 @@ router.post('/', (req, res) => {
         `INSERT INTO interventions
           (type, catalogue_id, contrat_id, nom_prestation, plaque, marque_vehicule, nom_client,
            employe_id, prix, cout_materiel, commission_montant, benefice, quantite, notes)
-         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
+         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(type, contrat_id || null, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), commissionMontant, benefice, quantiteFinale, notes || null);
+      .run(type, contrat_id || null, nomFinal, plaque.toUpperCase(), marque_vehicule, nom_client, employe_id, Number(prix), coutMateriel, commissionMontant, benefice, quantiteFinale, notes || null);
     if (marque_vehicule && marque_vehicule.trim() && marque_vehicule !== 'Kit de réparation') {
       db.prepare('INSERT OR IGNORE INTO marques_vehicules (nom) VALUES (?)').run(marque_vehicule.trim());
     }
