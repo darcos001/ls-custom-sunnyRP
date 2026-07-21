@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Paintbrush, Wrench, DollarSign, TrendingUp, Search, Filter, RotateCcw, Trash2, Package } from 'lucide-react';
+import { Paintbrush, Wrench, DollarSign, TrendingUp, Search, Filter, RotateCcw, Trash2, Package, Download } from 'lucide-react';
 import CarteStat from '../components/CarteStat.jsx';
 import ModaleIntervention from '../components/ModaleIntervention.jsx';
 import ModaleKitReparation from '../components/ModaleKitReparation.jsx';
@@ -73,6 +73,33 @@ export default function RepasCustom() {
   function gererInterventionCreee() {
     setModaleOuverte(null);
     chargerTout();
+  }
+
+  function exporterCSV() {
+    const entetes = ['Date', 'Type', 'Prestation', 'Client', 'Véhicule', 'Plaque', 'Mécano', 'Prix', 'Coût matériel', 'Commission', 'Bénéfice garage', 'Contrat'];
+    const echapper = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lignesCSV = lignes.map((l) => [
+      new Date(l.date_creation).toLocaleString('fr-FR'),
+      l.type === 'custom' ? 'Custom' : 'Réparation',
+      l.nom_prestation,
+      l.nom_client,
+      l.marque_vehicule,
+      l.plaque,
+      l.mecano_nom,
+      l.prix,
+      l.cout_materiel,
+      l.commission_montant,
+      l.benefice,
+      l.contrat_nom || '',
+    ].map(echapper).join(';'));
+    const contenu = [entetes.join(';'), ...lignesCSV].join('\n');
+    const blob = new Blob(['\uFEFF' + contenu], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const lien = document.createElement('a');
+    lien.href = url;
+    lien.download = `interventions_${new Date().toISOString().slice(0, 10)}.csv`;
+    lien.click();
+    URL.revokeObjectURL(url);
   }
 
   if (chargement) {
@@ -210,6 +237,14 @@ export default function RepasCustom() {
             title="Réinitialiser"
           >
             <RotateCcw size={16} />
+          </button>
+          <button
+            onClick={exporterCSV}
+            className="px-4 bg-bg-card text-gray-300 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
+            title="Exporter en CSV"
+          >
+            <Download size={16} />
+            CSV
           </button>
         </div>
       </div>
